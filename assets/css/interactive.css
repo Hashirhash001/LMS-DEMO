@@ -1,0 +1,331 @@
+/* Interactive Learning Styles */
+.interactive-module-card {
+    transition: all 0.3s ease;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.interactive-module-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border-color: #6f42c1;
+}
+
+.interactive-module-card .card-body {
+    padding: 2rem;
+}
+
+.interactive-module-card .fa-3x {
+    margin-bottom: 1rem;
+}
+
+/* Progress Tracking */
+.progress-section {
+    background: rgba(111, 66, 193, 0.05);
+    border: 1px solid rgba(111, 66, 193, 0.2);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+#interactiveScoreBadge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+
+#interactiveProgressBar {
+    transition: width 0.5s ease;
+}
+
+/* Email Training Styles */
+.email-simulation {
+    border: 2px solid #dee2e6;
+    background: linear-gradient(135deg, #f8f9fa, #fff);
+    font-family: 'Courier New', monospace;
+}
+
+.email-header {
+    background: rgba(111, 66, 193, 0.05);
+    margin: -1rem -1rem 1rem -1rem;
+    padding: 1rem;
+}
+
+.email-assessment .btn-group {
+    margin-top: 1rem;
+}
+
+.email-assessment .btn-lg {
+    padding: 1rem 2rem;
+    font-weight: 600;
+}
+
+.result-explanation {
+    border-top: 2px solid #dee2e6;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+/* Password Training Styles */
+.password-tester {
+    background: rgba(23, 162, 184, 0.05);
+    border: 1px solid rgba(23, 162, 184, 0.2);
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+.password-strength-meter .progress {
+    height: 12px;
+    background: #e9ecef;
+    border-radius: 6px;
+}
+
+.password-analysis {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+}
+
+.password-analysis ul li {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.password-tips .list-group-item {
+    border: none;
+    padding: 0.5rem 0;
+    background: transparent;
+}
+
+/* Choice Cards */
+.choice-card {
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+    background: white;
+}
+
+.choice-card:hover {
+    border-color: #6f42c1;
+    background: rgba(111, 66, 193, 0.02);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.choice-card.selected {
+    border-color: #6f42c1;
+    background: rgba(111, 66, 193, 0.1);
+    box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.2);
+}
+
+.choice-content h6 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.choice-content p {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.choice-content small {
+    font-style: italic;
+}
+
+/* Scenario Styles */
+.scenario-situation {
+    padding: 2rem;
+    background: linear-gradient(135deg, #fff, #f8f9fa);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.scenario-choices {
+    margin-top: 2rem;
+}
+
+.scenario-progress {
+    background: rgba(23, 162, 184, 0.05);
+    border: 1px solid rgba(23, 162, 184, 0.2);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+/* Policy Training Styles */
+.policy-training-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.policy-choices {
+    margin-top: 2rem;
+}
+
+#policyResults {
+    background: rgba(111, 66, 193, 0.05);
+    border: 1px solid rgba(111, 66, 193, 0.2);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+/* Interactive Results */
+.interactive-results {
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #fff);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.interactive-results .alert {
+    border: none;
+    font-size: 1.1rem;
+}
+
+.interactive-results h2 {
+    font-size: 3rem;
+    margin: 1rem 0;
+    font-weight: 900;
+}
+
+.interactive-results h3 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .interactive-module-card {
+        margin-bottom: 1rem;
+    }
+
+    .choice-card {
+        margin-bottom: 1rem;
+    }
+
+    .email-assessment .btn-group {
+        flex-direction: column;
+    }
+
+    .email-assessment .btn-lg {
+        margin-bottom: 0.5rem;
+    }
+
+    .interactive-results h2 {
+        font-size: 2rem;
+    }
+
+    .interactive-results h3 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .interactive-module-card {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .interactive-module-card:hover {
+    border-color: #805ad5;
+    background: #363c4a;
+}
+
+[data-theme="dark"] .email-simulation {
+    background: linear-gradient(135deg, #2d3748, #363c4a);
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .email-header {
+    background: rgba(128, 90, 213, 0.1);
+}
+
+[data-theme="dark"] .choice-card {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .choice-card:hover,
+[data-theme="dark"] .choice-card.selected {
+    border-color: #805ad5;
+    background: #363c4a;
+}
+
+[data-theme="dark"] .password-tester,
+[data-theme="dark"] .progress-section,
+[data-theme="dark"] .scenario-progress {
+    background: rgba(128, 90, 213, 0.1);
+    border-color: rgba(128, 90, 213, 0.3);
+}
+
+[data-theme="dark"] .password-analysis {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+/* Badge Styling */
+.interactive-content-container .badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+}
+
+/* Button Enhancements */
+.btn-quiz-action,
+.btn-lesson-start {
+    transition: all 0.3s ease;
+}
+
+.btn-quiz-action:hover,
+.btn-lesson-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #6f42c1;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

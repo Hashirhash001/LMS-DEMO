@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart LMS - Advanced Employee Training Platform</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/themes.css">
+    <link rel="stylesheet" href="assets/css/professional.css">
+    <link rel="stylesheet" href="assets/css/interactive.css">
+
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-toggle" id="sidebarToggle">
+            <i class="fas fa-chevron-left"></i>
+        </div>
+
+        <div class="brand">
+            <div class="brand-icon">S</div>
+            <span class="brand-text">Smart LMS</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="dashboard">
+                    <i class="nav-icon fas fa-home"></i>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="courses">
+                    <i class="nav-icon fas fa-book"></i>
+                    <span class="nav-text">Courses</span>
+                    <span class="badge">12</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link active" data-section="upload">
+                    <i class="nav-icon fas fa-upload"></i>
+                    <span class="nav-text">Upload Course</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="employees">
+                    <i class="nav-icon fas fa-users"></i>
+                    <span class="nav-text">Employees</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="analytics">
+                    <i class="nav-icon fas fa-chart-bar"></i>
+                    <span class="nav-text">Analytics</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="ai-assistant">
+                    <i class="nav-icon fas fa-robot"></i>
+                    <span class="nav-text">AI Assistant</span>
+                    <span class="badge new-badge">NEW</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="settings">
+                    <i class="nav-icon fas fa-cog"></i>
+                    <span class="nav-text">Settings</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="user-avatar">Z</div>
+            <div class="user-info">
+                <h4>Smart LMS</h4>
+                <p>Administrator</p>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Header -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle d-lg-none" id="mobileMenuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <div class="header-right">
+                <div class="theme-toggle" id="themeToggle">
+                    <i class="fas fa-sun light-icon"></i>
+                    <i class="fas fa-moon dark-icon"></i>
+                </div>
+                <div class="user-menu">
+                    <img src="assets/images/avatar.png" alt="User" class="user-avatar-header">
+                </div>
+            </div>
+        </header>
+
+        <!-- Upload Course Section -->
+        <section id="upload-section" class="section active">
+            <div class="page-header">
+                <h1>Upload New Course</h1>
+                <a href="#" class="back-btn" onclick="showSection('courses')">
+                    <i class="fas fa-arrow-left"></i> Back to Courses
+                </a>
+            </div>
+
+            <div class="course-creation">
+                <h2 class="course-title">Create Your Course</h2>
+                <p class="course-subtitle">
+                    Choose how you'd like to create your new course. Our AI will help transform your content into engaging learning experiences.
+                </p>
+
+                <div class="options-container">
+                    <!-- PowerPoint Option -->
+                    <div class="option-card recommended" data-option="powerpoint">
+                        <div class="recommended-badge"><i class="fas fa-star"></i> Recommended</div>
+                        <div class="option-icon powerpoint-icon">
+                            <i class="fas fa-file-powerpoint"></i>
+                        </div>
+                        <h3 class="option-title">Upload PowerPoint</h3>
+                        <p class="option-description">
+                            Transform your existing PPT presentations into interactive courses with AI-generated quizzes
+                        </p>
+                        <ul class="feature-list">
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Automatic content structuring
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                AI-generated quizzes
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Interactive elements
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Progress tracking
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- CSV Upload Option -->
+                    <div class="option-card" data-option="csv">
+                        <div class="option-icon document-icon">
+                            <i class="fas fa-file-csv"></i>
+                        </div>
+                        <h3 class="option-title">Upload CSV Template</h3>
+                        <p class="option-description">
+                            Import structured course content from CSV template with modules and lessons
+                        </p>
+                        <ul class="feature-list">
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Structured course import
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Module organization
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Automatic quiz creation
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Progress tracking
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Manual Creation Option -->
+                    <div class="option-card" data-option="manual">
+                        <div class="option-icon manual-icon">
+                            <i class="fas fa-edit"></i>
+                        </div>
+                        <h3 class="option-title">Create Manually</h3>
+                        <p class="option-description">
+                            Build your course from scratch with our intuitive course builder and AI assistance
+                        </p>
+                        <ul class="feature-list">
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Full creative control
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Rich text editor
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Media integration
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                AI suggestions
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Courses Dashboard Section -->
+        <section id="courses-section" class="section">
+            <div class="page-header">
+                <h1>Course Dashboard</h1>
+                <button class="btn btn-primary" onclick="showSection('upload')">
+                    <i class="fas fa-plus"></i> Create New Course
+                </button>
+            </div>
+
+            <div class="course-dashboard">
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalCourses">0</h3>
+                            <p>Total Courses</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalModules">0</h3>
+                            <p>Total Modules</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalLessons">0</h3>
+                            <p>Total Lessons</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalQuizzes">0</h3>
+                            <p>Total Quizzes</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="courses-grid" id="coursesGrid">
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <h3>No courses yet</h3>
+                        <p>Upload your first course to get started</p>
+                        <button class="btn btn-primary" onclick="showSection('upload')">Create Course</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Course Player Section -->
+        <section id="player-section" class="section">
+            <div id="coursePlayer"></div>
+        </section>
+
+        <!-- Module Player Section -->
+        <section id="module-section" class="section">
+            <div id="modulePlayer"></div>
+        </section>
+
+        <!-- Lesson Player Section -->
+        <section id="lesson-section" class="section">
+            <div id="lessonPlayer"></div>
+        </section>
+
+        <!-- Quiz Section -->
+        <section id="quiz-section" class="section">
+            <div id="quizPlayer"></div>
+        </section>
+
+        <!-- Quiz Results Section -->
+        <section id="quiz-results-section" class="section">
+            <div id="quizResults"></div>
+        </section>
+    </main>
+
+    <!-- CSV Upload Modal -->
+    <div class="modal fade" id="csvModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-csv me-2"></i>
+                        Upload Course CSV Template
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="csvForm">
+                        <div class="mb-3">
+                            <label class="form-label">Upload CSV File</label>
+                            <div class="upload-area" id="csvUploadArea">
+                                <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                                <div class="upload-content">
+                                    <div style="font-size: 3rem; margin-bottom: 1rem;">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <h4>Drop your CSV file here</h4>
+                                    <p class="text-muted">or <button type="button" class="btn btn-link p-0" onclick="document.getElementById('csvFileInput').click()">browse to upload</button></p>
+                                    <small class="text-muted">Supports .csv files with course structure and quiz questions</small>
+                                </div>
+                                <div id="csvFileInfo" style="display: none;">
+                                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    </div>
+                                    <p id="csvFileName"></p>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="removeCsvFile()">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress-container" id="csvProgressContainer" style="display: none;">
+                            <label class="form-label">Processing Progress</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="csvProgressBar"></div>
+                            </div>
+                            <small class="text-muted mt-1" id="csvProgressText">Extracting course content...</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="csvUploadBtn" onclick="processCsvFile()">
+                        <i class="fas fa-cogs me-2"></i>Process CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div style="font-size: 4rem; color: var(--success-color);">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <h3 class="mt-3">Courses Created Successfully!</h3>
+                    <p id="successMessage" class="mt-3"></p>
+                    <button type="button" class="btn btn-primary mt-3" onclick="viewCreatedCourses()">
+                        <i class="fas fa-eye me-2"></i>View Courses
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Completion Modal -->
+    <div class="modal fade" id="completionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div style="font-size: 4rem; color: var(--success-color);">
+                        <i class="fas fa-medal"></i>
+                    </div>
+                    <h3 class="mt-3">Course Completed!</h3>
+                    <p class="mt-3">Congratulations! You have successfully completed the course.</p>
+                    <div class="certificate-info mt-3 p-3">
+                        <h5 id="completedCourseTitle"></h5>
+                        <p class="text-muted mb-0">Completed on: <span id="completionDate"></span></p>
+                        <p class="text-success mt-2">
+                            <i class="fas fa-certificate me-2"></i>
+                            Certificate Earned!
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-primary mt-3" data-bs-dismiss="modal">
+                        <i class="fas fa-arrow-right me-2"></i>Continue Learning
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/quiz.js"></script>
+    <script src="assets/js/video-player.js"></script>
+    <script src="assets/js/themes.js"></script>
+</body>
+</html>

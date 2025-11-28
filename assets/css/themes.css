@@ -1,0 +1,122 @@
+/* Light Theme Variables */
+[data-theme="light"] {
+    --primary-color: #7c3aed;
+    --sidebar-bg: #ffffff;
+    --main-bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text-light: #1f2937;
+    --text-muted: #6b7280;
+    --border-color: #e5e7eb;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    --info-color: #3b82f6;
+}
+
+/* Light theme specific adjustments */
+[data-theme="light"] .sidebar {
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .top-header {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .option-card:hover {
+    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.15);
+}
+
+[data-theme="light"] .course-card:hover {
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1);
+}
+
+[data-theme="light"] .nav-link:hover {
+    background: rgba(124, 58, 237, 0.05);
+}
+
+[data-theme="light"] .nav-link.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+[data-theme="light"] .user-profile {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .upload-area.dragover {
+    background: rgba(124, 58, 237, 0.05);
+}
+
+[data-theme="light"] .quiz-option:hover {
+    background: rgba(124, 58, 237, 0.05);
+}
+
+[data-theme="light"] .quiz-option.selected {
+    background: rgba(124, 58, 237, 0.1);
+}
+
+[data-theme="light"] .quiz-option.correct {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="light"] .quiz-option.incorrect {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="light"] .feedback-message.passed {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+[data-theme="light"] .feedback-message.failed {
+    background: rgba(239, 68, 68, 0.05);
+}
+
+[data-theme="light"] .module-card.completed {
+    background: rgba(16, 185, 129, 0.03);
+}
+
+[data-theme="light"] .certificate-info {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+
+/* Theme transition */
+* {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Theme toggle specific styles */
+.theme-toggle {
+    background: var(--border-color);
+}
+
+[data-theme="light"] .theme-toggle {
+    background: var(--primary-color);
+}
+
+[data-theme="light"] .theme-toggle::before {
+    background: white;
+    transform: translateX(25px);
+}
+
+[data-theme="dark"] .theme-toggle::before {
+    background: white;
+    transform: translateX(0);
+}
+
+/* Theme-specific icon visibility */
+[data-theme="dark"] .light-icon {
+    opacity: 1;
+}
+
+[data-theme="dark"] .dark-icon {
+    opacity: 0;
+}
+
+[data-theme="light"] .light-icon {
+    opacity: 0;
+}
+
+[data-theme="light"] .dark-icon {
+    opacity: 1;
+}
