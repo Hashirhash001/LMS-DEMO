@@ -15,6 +15,10 @@ let userData = {
     unlockedModules: []
 };
 
+// Draft courses (from CSV) BEFORE final creation
+let draftCourses = [];
+
+
 // Initialize the application
 $(document).ready(function() {
     initializeApp();
@@ -260,7 +264,6 @@ function parseCsvFile(file) {
             });
 
             console.log('CSV Headers:', headers);
-            console.log('Header Index Map:', headerIndex);
 
             const courseMap = {};
             let totalLessons = 0;
@@ -275,9 +278,9 @@ function parseCsvFile(file) {
                 if (progress < 30) {
                     $('#csvProgressText').text('Parsing course structure...');
                 } else if (progress < 60) {
-                    $('#csvProgressText').text('Creating quizzes and lessons...');
+                    $('#csvProgressText').text('Creating lessons and quizzes...');
                 } else if (progress < 90) {
-                    $('#csvProgressText').text('Finalizing course setup...');
+                    $('#csvProgressText').text('Preparing preview...');
                 }
 
                 if (progress >= 100) {
@@ -285,12 +288,11 @@ function parseCsvFile(file) {
                 }
             }, 150);
 
-            // Process CSV data
+            // Process CSV data (same as before)
             for (let i = 1; i < lines.length; i++) {
                 const cells = parseCSVLine(lines[i]);
 
                 if (cells.length < headers.length) {
-                    console.warn('Skipping incomplete row', i);
                     continue;
                 }
 
@@ -337,17 +339,10 @@ function parseCsvFile(file) {
                     };
                 }
 
-                // FIXED: Add lesson with proper video URL handling
+                // Add lesson
                 if (moduleId && lessonId) {
                     const lessonType = cells[headerIndex['lesson_type']] || 'Reading';
                     const rawVideoUrl = cells[headerIndex['video_url']] || '';
-
-                    console.log('Processing lesson:', {
-                        id: lessonId,
-                        title: cells[headerIndex['lesson_title']],
-                        type: lessonType,
-                        rawVideoUrl: rawVideoUrl
-                    });
 
                     const lesson = {
                         id: lessonId,
@@ -362,10 +357,6 @@ function parseCsvFile(file) {
                         interactiveContent: (lessonType === 'Interactive' || lessonType === 'Scenario' || lessonType === 'Assessment') ? 
                             generateInteractiveContent(lessonType, cells[headerIndex['lesson_content']]) : null
                     };
-
-                    if (lesson.videoUrl) {
-                        console.log('✅ Video lesson created:', lesson.id, 'URL:', lesson.videoUrl);
-                    }
 
                     courseMap[courseId].modules[moduleId].lessons.push(lesson);
                     courseMap[courseId].modules[moduleId].totalLessons++;
@@ -390,7 +381,6 @@ function parseCsvFile(file) {
                     };
                     courseMap[courseId].totalQuizzes++;
                     totalQuizzes++;
-                    console.log('✓ Added quiz to module', moduleId, 'with', courseMap[courseId].modules[moduleId].quiz.questions.length, 'questions');
                 }
             }
 
@@ -410,43 +400,14 @@ function parseCsvFile(file) {
                 return course;
             });
 
-            courses.push(...newCourses);
-
-            newCourses.forEach(course => {
-                course.modules.forEach(module => {
-                    if (module.quiz) {
-                        quizAttempts[module.quiz.id] = 0;
-                    }
-                });
-            });
-
-            applyUserProgress();
-            checkAndUnlockContent();
-            saveData();
+            // CHANGED: Store in draftCourses instead of courses
+            draftCourses = newCourses;
 
             $('#csvModal').modal('hide');
 
             setTimeout(() => {
-                const totalQuestions = newCourses.reduce((sum, course) => {
-                    return sum + course.modules.reduce((moduleSum, module) => {
-                        return moduleSum + (module.quiz ? module.quiz.questions.length : 0);
-                    }, 0);
-                }, 0);
-
-                // Count video lessons
-                const videoLessons = newCourses.reduce((sum, course) => {
-                    return sum + course.modules.reduce((moduleSum, module) => {
-                        return moduleSum + module.lessons.filter(lesson => lesson.type === 'Video' && lesson.videoUrl).length;
-                    }, 0);
-                }, 0);
-
-                console.log('\n✅ CSV Processing Complete!');
-                console.log('📊 Courses:', newCourses.length);
-                console.log('📚 Total Lessons:', totalLessons);
-                console.log('🎥 Video Lessons:', videoLessons);
-                console.log('❓ Quiz Questions:', totalQuestions);
-
-                showSuccessModal(newCourses.length, totalLessons, totalQuestions);
+                // Show draft page instead of success modal
+                showDraftPage();
             }, 500);
 
         } catch (error) {
@@ -458,6 +419,372 @@ function parseCsvFile(file) {
 
     reader.readAsText(file);
 }
+
+// ============================================================================
+// DRAFT PAGE RENDERING
+// ============================================================================
+
+function showDraftPage() {
+    console.log('📋 Showing draft page with', draftCourses.length, 'courses');
+
+    // Calculate statistics
+    let totalModules = 0;
+    let totalLessons = 0;
+    let totalQuestions = 0;
+
+    draftCourses.forEach(course => {
+        totalModules += course.modules.length;
+        totalLessons += course.totalLessons;
+        course.modules.forEach(module => {
+            if (module.quiz) {
+                totalQuestions += module.quiz.questions.length;
+            }
+        });
+    });
+
+    // Update summary
+    $('#draftCourseCount').text(draftCourses.length);
+    $('#draftModuleCount').text(totalModules);
+    $('#draftLessonCount').text(totalLessons);
+    $('#draftQuestionCount').text(totalQuestions);
+
+    // Render courses
+    renderDraftCourses();
+
+    // Show draft section
+    showSection('draft');
+}
+
+function renderDraftCourses() {
+    const container = $('#draftCoursesContainer');
+    let html = '';
+
+    draftCourses.forEach((course, courseIndex) => {
+        html += renderDraftCourse(course, courseIndex);
+    });
+
+    container.html(html);
+
+    // Setup edit functionality
+    setupEditableFields();
+}
+
+function renderDraftCourse(course, courseIndex) {
+    const videoLessons = course.modules.reduce((sum, module) => {
+        return sum + module.lessons.filter(l => l.type === 'Video').length;
+    }, 0);
+
+    return `
+        <div class="draft-course-card" data-course-index="${courseIndex}">
+            <div class="draft-course-header">
+                <div class="draft-course-title-section">
+                    <h2 class="mb-3">
+                        <i class="fas fa-book me-2"></i>
+                        Course ${courseIndex + 1}
+                    </h2>
+
+                    <div class="mb-3">
+                        <span class="field-label">Course Title</span>
+                        <div class="editable-field" data-field="title" data-course="${courseIndex}">
+                            <input type="text" value="${course.title}" />
+                            <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="field-label">Description</span>
+                        <div class="editable-field" data-field="description" data-course="${courseIndex}">
+                            <textarea rows="2">${course.description}</textarea>
+                            <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <span class="field-label">Category</span>
+                            <div class="editable-field" data-field="category" data-course="${courseIndex}">
+                                <input type="text" value="${course.category}" />
+                                <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <span class="field-label">Difficulty</span>
+                            <div class="editable-field" data-field="difficulty" data-course="${courseIndex}">
+                                <select>
+                                    <option ${course.difficulty === 'Beginner' ? 'selected' : ''}>Beginner</option>
+                                    <option ${course.difficulty === 'Intermediate' ? 'selected' : ''}>Intermediate</option>
+                                    <option ${course.difficulty === 'Advanced' ? 'selected' : ''}>Advanced</option>
+                                    <option ${course.difficulty === 'Expert' ? 'selected' : ''}>Expert</option>
+                                </select>
+                                <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <span class="field-label">Duration (minutes)</span>
+                            <div class="editable-field" data-field="duration" data-course="${courseIndex}">
+                                <input type="number" value="${course.duration}" min="1" />
+                                <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="badge-group">
+                        <span class="info-badge">
+                            <i class="fas fa-layer-group"></i>
+                            ${course.modules.length} Modules
+                        </span>
+                        <span class="info-badge">
+                            <i class="fas fa-play-circle"></i>
+                            ${course.totalLessons} Lessons
+                        </span>
+                        ${videoLessons > 0 ? `
+                        <span class="info-badge">
+                            <i class="fas fa-video"></i>
+                            ${videoLessons} Videos
+                        </span>
+                        ` : ''}
+                        <span class="info-badge">
+                            <i class="fas fa-question-circle"></i>
+                            ${course.totalQuizzes} Quizzes
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            ${renderDraftModules(course.modules, courseIndex)}
+        </div>
+    `;
+}
+
+function renderDraftModules(modules, courseIndex) {
+    let html = '<div class="draft-module-section">';
+    html += '<h4 class="mb-3"><i class="fas fa-layer-group me-2"></i>Modules</h4>';
+
+    modules.forEach((module, moduleIndex) => {
+        html += `
+            <div class="draft-module-card" data-course="${courseIndex}" data-module="${moduleIndex}">
+                <div class="draft-module-header">
+                    <h5>
+                        <i class="fas fa-folder me-2"></i>
+                        Module ${moduleIndex + 1}: ${module.title}
+                    </h5>
+                    <span class="badge bg-primary">${module.lessons.length} Lessons</span>
+                </div>
+
+                <div class="mb-3">
+                    <span class="field-label">Module Title</span>
+                    <div class="editable-field" data-field="title" data-course="${courseIndex}" data-module="${moduleIndex}">
+                        <input type="text" value="${module.title}" />
+                        <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <span class="field-label">Module Description</span>
+                    <div class="editable-field" data-field="description" data-course="${courseIndex}" data-module="${moduleIndex}">
+                        <textarea rows="2">${module.description}</textarea>
+                        <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                    </div>
+                </div>
+
+                ${renderDraftLessons(module.lessons, courseIndex, moduleIndex)}
+                ${module.quiz ? renderDraftQuiz(module.quiz, courseIndex, moduleIndex) : ''}
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function renderDraftLessons(lessons, courseIndex, moduleIndex) {
+    let html = '<div class="draft-lesson-list">';
+    html += '<h6 class="mb-2"><i class="fas fa-play-circle me-2"></i>Lessons</h6>';
+
+    lessons.forEach((lesson, lessonIndex) => {
+        html += `
+            <div class="draft-lesson-item">
+                <div class="draft-lesson-header">
+                    <div>
+                        <strong>${lessonIndex + 1}. ${lesson.title}</strong>
+                        <span class="lesson-type-badge ${lesson.type.toLowerCase()} ms-2">${lesson.type}</span>
+                    </div>
+                    <span class="text-muted"><i class="fas fa-clock me-1"></i>${lesson.duration} min</span>
+                </div>
+
+                <div class="editable-field" data-field="title" data-course="${courseIndex}" data-module="${moduleIndex}" data-lesson="${lessonIndex}">
+                    <input type="text" value="${lesson.title}" />
+                    <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                </div>
+
+                ${lesson.videoUrl ? `
+                <div class="mt-2">
+                    <span class="field-label">Video URL</span>
+                    <div class="editable-field" data-field="videoUrl" data-course="${courseIndex}" data-module="${moduleIndex}" data-lesson="${lessonIndex}">
+                        <input type="text" value="${lesson.videoUrl}" />
+                        <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function renderDraftQuiz(quiz, courseIndex, moduleIndex) {
+    return `
+        <div class="draft-quiz-card">
+            <div class="draft-quiz-header">
+                <h6><i class="fas fa-question-circle me-2"></i>Module Quiz</h6>
+                <span class="badge bg-warning">${quiz.questions.length} Questions</span>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <span class="field-label">Passing Score (%)</span>
+                    <div class="editable-field" data-field="passingScore" data-course="${courseIndex}" data-module="${moduleIndex}" data-quiz="true">
+                        <input type="number" value="${quiz.passingScore}" min="0" max="100" />
+                        <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <span class="field-label">Time Limit (minutes)</span>
+                    <div class="editable-field" data-field="timeLimit" data-course="${courseIndex}" data-module="${moduleIndex}" data-quiz="true">
+                        <input type="number" value="${quiz.timeLimit}" min="1" />
+                        <span class="edit-indicator"><i class="fas fa-edit"></i></span>
+                    </div>
+                </div>
+            </div>
+
+            ${renderDraftQuestions(quiz.questions, courseIndex, moduleIndex)}
+        </div>
+    `;
+}
+
+function renderDraftQuestions(questions, courseIndex, moduleIndex) {
+    let html = '<div class="mt-3">';
+    html += '<h6 class="mb-2">Questions</h6>';
+
+    questions.forEach((question, qIndex) => {
+        html += `
+            <div class="draft-question-item">
+                <strong>Q${qIndex + 1}.</strong> ${question.text}
+                <div class="draft-option-list">
+                    ${question.options.map((option, oIndex) => `
+                        <div class="draft-option-item ${oIndex === question.correctIndex ? 'correct' : ''}">
+                            <span class="option-indicator ${oIndex === question.correctIndex ? 'correct' : 'wrong'}">
+                                ${oIndex === question.correctIndex ? '<i class="fas fa-check"></i>' : String.fromCharCode(65 + oIndex)}
+                            </span>
+                            <span>${option}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ============================================================================
+// EDITABLE FIELDS FUNCTIONALITY
+// ============================================================================
+
+function setupEditableFields() {
+    $('.editable-field input, .editable-field textarea, .editable-field select').on('change blur', function() {
+        const field = $(this).closest('.editable-field');
+        const courseIndex = parseInt(field.data('course'));
+        const fieldName = field.data('field');
+        const value = $(this).val();
+
+        if (field.data('module') !== undefined) {
+            const moduleIndex = parseInt(field.data('module'));
+
+            if (field.data('lesson') !== undefined) {
+                // Lesson field
+                const lessonIndex = parseInt(field.data('lesson'));
+                draftCourses[courseIndex].modules[moduleIndex].lessons[lessonIndex][fieldName] = value;
+            } else if (field.data('quiz')) {
+                // Quiz field
+                draftCourses[courseIndex].modules[moduleIndex].quiz[fieldName] = fieldName === 'passingScore' || fieldName === 'timeLimit' ? parseInt(value) : value;
+            } else {
+                // Module field
+                draftCourses[courseIndex].modules[moduleIndex][fieldName] = value;
+            }
+        } else {
+            // Course field
+            if (fieldName === 'duration') {
+                draftCourses[courseIndex][fieldName] = parseInt(value);
+            } else {
+                draftCourses[courseIndex][fieldName] = value;
+            }
+        }
+
+        console.log('✏️ Updated', fieldName, 'to:', value);
+    });
+}
+
+// ============================================================================
+// CONFIRM & CANCEL ACTIONS
+// ============================================================================
+
+function confirmCourseCreation() {
+    if (draftCourses.length === 0) {
+        showNotification('No courses to create', 'warning');
+        return;
+    }
+
+    console.log('✅ Confirming course creation:', draftCourses.length, 'courses');
+
+    // Add to main courses array
+    courses.push(...draftCourses);
+
+    // Initialize quiz attempts
+    draftCourses.forEach(course => {
+        course.modules.forEach(module => {
+            if (module.quiz) {
+                quizAttempts[module.quiz.id] = 0;
+            }
+        });
+    });
+
+    // Apply user progress
+    applyUserProgress();
+    checkAndUnlockContent();
+    saveData();
+
+    // Clear draft
+    draftCourses = [];
+
+    // Show success
+    const totalQuestions = courses.reduce((sum, course) => {
+        return sum + course.modules.reduce((moduleSum, module) => {
+            return moduleSum + (module.quiz ? module.quiz.questions.length : 0);
+        }, 0);
+    }, 0);
+
+    showSuccessModal(courses.length, courses.reduce((sum, c) => sum + c.totalLessons, 0), totalQuestions);
+}
+
+function cancelCourseDraft() {
+    if (confirm('Are you sure you want to cancel? All changes will be lost.')) {
+        draftCourses = [];
+        showSection('upload');
+        showNotification('Course draft cancelled', 'info');
+    }
+}
+
+// Export functions
+window.showDraftPage = showDraftPage;
+window.confirmCourseCreation = confirmCourseCreation;
+window.cancelCourseDraft = cancelCourseDraft;
+
+console.log('✅ Draft page functionality loaded');
+
 
 // Export functions
 window.parseVideoUrl = parseVideoUrl;

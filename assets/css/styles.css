@@ -1588,3 +1588,300 @@ body {
     cursor: not-allowed;
     opacity: 0.6;
 }
+
+
+/* Draft Page Styles - ADD THIS TO YOUR CSS */
+.draft-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.draft-summary-card {
+    background: var(--card-background);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.draft-summary-header {
+    margin-bottom: 1.5rem;
+}
+
+.draft-summary-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.summary-stat {
+    padding: 1rem;
+}
+
+.summary-stat i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.summary-stat h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0.5rem 0 0.25rem 0;
+    color: var(--text-primary);
+}
+
+.summary-stat p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.draft-course-card {
+    background: var(--card-background);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid var(--border-color);
+}
+
+.draft-course-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.draft-course-title-section {
+    flex: 1;
+}
+
+.draft-course-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.editable-field {
+    position: relative;
+    padding: 0.75rem;
+    background: var(--input-background);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.editable-field:hover {
+    border-color: var(--primary-color);
+    background: var(--hover-background);
+}
+
+.editable-field.editing {
+    border-color: var(--primary-color);
+    background: var(--input-background);
+}
+
+.editable-field input,
+.editable-field textarea,
+.editable-field select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: inherit;
+    font-family: inherit;
+    padding: 0;
+    resize: vertical;
+}
+
+.editable-field input:focus,
+.editable-field textarea:focus,
+.editable-field select:focus {
+    outline: none;
+}
+
+.edit-indicator {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    color: var(--primary-color);
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.editable-field:hover .edit-indicator {
+    opacity: 1;
+}
+
+.draft-module-section {
+    margin-top: 2rem;
+}
+
+.draft-module-card {
+    background: var(--background-secondary);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid var(--primary-color);
+}
+
+.draft-module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.draft-lesson-list {
+    margin-top: 1rem;
+}
+
+.draft-lesson-item {
+    background: var(--card-background);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+
+.draft-lesson-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.lesson-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.lesson-type-badge.video {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.lesson-type-badge.reading {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.lesson-type-badge.interactive {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.lesson-type-badge.scenario {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.draft-quiz-card {
+    background: var(--background-secondary);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    border-left: 4px solid var(--warning-color);
+}
+
+.draft-quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.draft-question-item {
+    background: var(--card-background);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.draft-option-list {
+    margin-top: 0.75rem;
+}
+
+.draft-option-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: var(--background-secondary);
+    border-radius: 6px;
+}
+
+.draft-option-item.correct {
+    background: #e8f5e9;
+    border-left: 3px solid #4caf50;
+}
+
+.option-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.option-indicator.correct {
+    background: #4caf50;
+    color: white;
+}
+
+.option-indicator.wrong {
+    background: #e0e0e0;
+    color: #757575;
+}
+
+.field-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.badge-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--background-secondary);
+    border-radius: 20px;
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .draft-course-header {
+        flex-direction: column;
+    }
+
+    .draft-course-actions {
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .draft-course-actions button {
+        flex: 1;
+    }
+}
