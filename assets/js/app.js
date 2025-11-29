@@ -4,6 +4,8 @@
 
 // Global variables
 let courses = [];
+let employees = [];   // [{id, name, email, department, role, status}]
+let enrollments = []; // [{employeeId, courseId, status, progress, dueDate, completedAt, score}]
 let currentCourse = null;
 let currentModule = null;
 let currentLesson = null;
@@ -14,6 +16,32 @@ let userData = {
     completedQuizzes: [],
     unlockedModules: []
 };
+
+let appSettings = {
+    general: {
+        portalName: 'Smart LMS',
+        timezone: 'Asia/Dubai',
+        language: 'en',
+        defaultDashboard: 'dashboard' // dashboard | courses | upload
+    },
+    branding: {
+        primaryColor: '#6366f1',
+        logoUrl: '',
+        darkModeDefault: true
+    },
+    notifications: {
+        emailFromName: 'Smart LMS',
+        emailFromAddress: 'no-reply@smartlms.local',
+        courseReminderDays: 3,
+        sendCompletionEmails: true
+    },
+    security: {
+        requireStrongPasswords: true,
+        sessionTimeoutMinutes: 60,
+        allowSelfRegistration: false
+    }
+};
+
 
 // Draft courses (from CSV) BEFORE final creation
 let draftCourses = [];
@@ -56,6 +84,17 @@ function setupEventListeners() {
     // CSV file upload
     setupCsvUpload();
 
+    // Employee filters – ADD THIS LINE
+    $('#employeeSearch, #employeeDeptFilter, #employeeStatusFilter')
+        .on('input change', renderEmployeesList);
+
+    // Settings tab switching
+    $('#settingsTabs').on('click', 'button', function () {
+        const tab = $(this).data('settings-tab');
+        renderSettings(tab);
+    });
+
+
     // Modal events
     $('#csvModal').on('hidden.bs.modal', function() {
         resetCsvUpload();
@@ -93,7 +132,7 @@ function toggleSidebar() {
 
     const isCollapsed = sidebar.hasClass('collapsed');
     localStorage.setItem('sidebar-collapsed', isCollapsed);
-    showNotification(isCollapsed ? 'Sidebar collapsed' : 'Sidebar expanded', 'info');
+    // showNotification(isCollapsed ? 'Sidebar collapsed' : 'Sidebar expanded', 'info');
 }
 
 function toggleMobileSidebar() {
@@ -134,11 +173,19 @@ function showSection(sectionName) {
 
     switch(sectionName) {
         case 'courses':
-            // Use in‑memory state: it already has latest unlock info
             renderCourseDashboard();
             break;
         case 'dashboard':
             renderDashboard();
+            break;
+        case 'employees':          // NEW
+            renderEmployeesList();
+            break;
+        case 'analytics':          // NEW (if using analytics)
+            renderAnalytics();
+            break;
+        case 'settings':
+            renderSettings('general');
             break;
         case 'player':
             if (currentCourse) {
@@ -162,8 +209,445 @@ function updateActiveNav(activeLink) {
 
 // Dashboard rendering
 function renderDashboard() {
-    console.log('Dashboard rendered');
+    const totalCourses   = courses.length;
+    const totalEmployees = employees.length;
+    const totalEnrollments = enrollments.length;
+
+    const completed = enrollments.filter(e => e.status === 'completed').length;
+    const inProgress = enrollments.filter(e => e.status === 'in_progress').length;
+    const notStarted = enrollments.filter(e => e.status === 'not_started').length;
+
+    const completionRate = totalEnrollments
+        ? Math.round((completed / totalEnrollments) * 100)
+        : 0;
+
+    const overdue = enrollments.filter(e => {
+        if (!e.dueDate || e.status === 'completed') return false;
+        return new Date(e.dueDate) < new Date();
+    }).length;
+
+    const html = `
+      <div class="dashboard-grid">
+        <div class="stats-cards">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-content">
+              <h3>${totalEmployees}</h3>
+              <p>Employees</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-book"></i></div>
+            <div class="stat-content">
+              <h3>${totalCourses}</h3>
+              <p>Courses</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+              <h3>${completionRate}%</h3>
+              <p>Overall Completion</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="stat-content">
+              <h3>${overdue}</h3>
+              <p>Overdue Trainings</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-8">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Course Progress Overview</h5>
+              </div>
+              <div class="card-body">
+                <p class="text-muted mb-2">Completions by status</p>
+                <div class="progress mb-2">
+                  <div class="progress-bar bg-success" style="width: ${completionRate}%"></div>
+                </div>
+                <div class="d-flex justify-content-between small text-muted">
+                  <span>Completed: ${completed}</span>
+                  <span>In progress: ${inProgress}</span>
+                  <span>Not started: ${notStarted}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-fire me-2"></i>Top Courses</h5>
+              </div>
+              <div class="card-body" id="topCoursesList">
+                ${renderTopCoursesWidget()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    $('#dashboardContent').html(html);
 }
+
+function renderTopCoursesWidget() {
+    if (!courses.length || !enrollments.length) {
+        return '<p class="text-muted mb-0">No course engagement data yet.</p>';
+    }
+
+    const counts = {};
+    enrollments.forEach(e => {
+        counts[e.courseId] = (counts[e.courseId] || 0) + 1;
+    });
+
+    const ranked = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    return ranked.map(([courseId, count]) => {
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return '';
+        return `
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <strong>${course.title}</strong>
+              <div class="small text-muted">${course.category}</div>
+            </div>
+            <span class="badge bg-primary">${count} enrolled</span>
+          </div>
+        `;
+    }).join('');
+}
+
+function renderEmployeesList() {
+    const search = ($('#employeeSearch').val() || '').toLowerCase();
+    const dept   = $('#employeeDeptFilter').val() || '';
+    const status = $('#employeeStatusFilter').val() || '';
+
+    // populate dept filter from current employees
+    const deptSet = new Set(employees.map(e => e.department).filter(Boolean));
+    const deptSelect = $('#employeeDeptFilter');
+    if (deptSelect.children().length <= 1) {
+        deptSet.forEach(d => deptSelect.append(`<option value="${d}">${d}</option>`));
+    }
+
+    const rows = employees
+        .filter(e => {
+            const matchSearch =
+                !search ||
+                e.name.toLowerCase().includes(search) ||
+                e.email.toLowerCase().includes(search);
+            const matchDept = !dept || e.department === dept;
+            const matchStatus = !status || e.status === status;
+            return matchSearch && matchDept && matchStatus;
+        })
+        .map(e => {
+            const empEnrolls = enrollments.filter(en => en.employeeId === e.id);
+            const assignedCourses = empEnrolls.length;
+            const completed = empEnrolls.filter(en => en.status === 'completed').length;
+            const avgCompletion = assignedCourses
+                ? Math.round((completed / assignedCourses) * 100)
+                : 0;
+
+            return `
+              <tr>
+                <td>${e.name}</td>
+                <td>${e.email}</td>
+                <td>${e.department || '-'}</td>
+                <td>${e.role || '-'}</td>
+                <td>${assignedCourses}</td>
+                <td>${avgCompletion}%</td>
+                <td>
+                  <span class="badge ${e.status === 'Active' ? 'bg-success' : 'bg-secondary'}">
+                    ${e.status}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-primary me-1" onclick="editEmployee('${e.id}')">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="toggleEmployeeStatus('${e.id}')">
+                    <i class="fas fa-power-off"></i>
+                  </button>
+                </td>
+              </tr>
+            `;
+        }).join('');
+
+    $('#employeesTableBody').html(rows || `<tr><td colspan="8" class="text-center text-muted">No employees found</td></tr>`);
+}
+
+function resetEmployeeFilters() {
+    $('#employeeSearch').val('');
+    $('#employeeDeptFilter').val('');
+    $('#employeeStatusFilter').val('');
+    renderEmployeesList();
+}
+
+function openEmployeeModal() {
+    $('#employeeModalTitle').text('Add Employee');
+    $('#employeeId').val('');
+    $('#employeeName').val('');
+    $('#employeeEmail').val('');
+    $('#employeeDept').val('');
+    $('#employeeRole').val('');
+    $('#employeeStatus').val('Active');
+    new bootstrap.Modal(document.getElementById('employeeModal')).show();
+}
+
+function editEmployee(id) {
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+    $('#employeeModalTitle').text('Edit Employee');
+    $('#employeeId').val(emp.id);
+    $('#employeeName').val(emp.name);
+    $('#employeeEmail').val(emp.email);
+    $('#employeeDept').val(emp.department);
+    $('#employeeRole').val(emp.role);
+    $('#employeeStatus').val(emp.status);
+    new bootstrap.Modal(document.getElementById('employeeModal')).show();
+}
+
+function saveEmployee(event) {
+    event.preventDefault();
+    const id    = $('#employeeId').val() || `EMP${Date.now()}`;
+    const existsIndex = employees.findIndex(e => e.id === id);
+
+    const data = {
+        id,
+        name: $('#employeeName').val().trim(),
+        email: $('#employeeEmail').val().trim(),
+        department: $('#employeeDept').val().trim(),
+        role: $('#employeeRole').val().trim(),
+        status: $('#employeeStatus').val()
+    };
+
+    if (existsIndex >= 0) {
+        employees[existsIndex] = data;
+    } else {
+        employees.push(data);
+    }
+
+    saveData();
+    renderEmployeesList();
+    showNotification('Employee saved', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('employeeModal')).hide();
+}
+
+function toggleEmployeeStatus(id) {
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+    emp.status = emp.status === 'Active' ? 'Inactive' : 'Active';
+    saveData();
+    renderEmployeesList();
+    showNotification('Employee status updated', 'info');
+}
+
+function renderAnalytics() {
+    // populate filters
+    const courseSel = $('#analyticsCourseFilter');
+    if (courseSel.children().length <= 1) {
+        courses.forEach(c => courseSel.append(`<option value="${c.id}">${c.title}</option>`));
+    }
+    const deptSel = $('#analyticsDeptFilter');
+    if (deptSel.children().length <= 1) {
+        const depts = new Set(employees.map(e => e.department).filter(Boolean));
+        depts.forEach(d => deptSel.append(`<option value="${d}">${d}</option>`));
+    }
+
+    const courseId = $('#analyticsCourseFilter').val() || '';
+    const dept     = $('#analyticsDeptFilter').val() || '';
+
+    let filtered = enrollments;
+
+    if (courseId) {
+        filtered = filtered.filter(e => e.courseId === courseId);
+    }
+    if (dept) {
+        const ids = employees.filter(e => e.department === dept).map(e => e.id);
+        filtered = filtered.filter(e => ids.includes(e.employeeId));
+    }
+
+    const total = filtered.length;
+    const completed = filtered.filter(e => e.status === 'completed').length;
+    const inProgress = filtered.filter(e => e.status === 'in_progress').length;
+    const notStarted = filtered.filter(e => e.status === 'not_started').length;
+    const completionRate = total ? Math.round(completed / total * 100) : 0;
+
+    $('#analyticsKPIs').html(`
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+            <div class="stat-content">
+              <h3>${total}</h3>
+              <p>Total Enrollments</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+              <h3>${completionRate}%</h3>
+              <p>Completion Rate</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-play-circle"></i></div>
+            <div class="stat-content">
+              <h3>${inProgress}</h3>
+              <p>In Progress</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+            <div class="stat-content">
+              <h3>${notStarted}</h3>
+              <p>Not Started</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    $('#analyticsTables').html(`
+      <div class="card mb-3">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-book-open me-2"></i>Course Performance</h5>
+        </div>
+        <div class="card-body table-responsive">
+          ${renderAnalyticsCourseTable(filtered)}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-users me-2"></i>Employees at Risk</h5>
+        </div>
+        <div class="card-body table-responsive">
+          ${renderAnalyticsRiskTable(filtered)}
+        </div>
+      </div>
+    `);
+}
+
+function renderAnalyticsCourseTable(filtered) {
+    if (!filtered.length) {
+        return '<p class="text-muted mb-0">No data for selected filters.</p>';
+    }
+    const grouped = {};
+    filtered.forEach(e => {
+        if (!grouped[e.courseId]) grouped[e.courseId] = [];
+        grouped[e.courseId].push(e);
+    });
+
+    let rows = '';
+    Object.entries(grouped).forEach(([courseId, list]) => {
+        const course = courses.find(c => c.id === courseId);
+        const total = list.length;
+        const completed = list.filter(en => en.status === 'completed').length;
+        const avgScore = Math.round(
+            list.filter(en => typeof en.score === 'number')
+                .reduce((s, en) => s + en.score, 0) /
+            (list.filter(en => typeof en.score === 'number').length || 1)
+        );
+        rows += `
+          <tr>
+            <td>${course ? course.title : courseId}</td>
+            <td>${total}</td>
+            <td>${completed}</td>
+            <td>${isNaN(avgScore) ? '-' : avgScore + '%'}</td>
+            <td>${total ? Math.round(completed / total * 100) + '%' : '-'}</td>
+          </tr>
+        `;
+    });
+
+    return `
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Enrollments</th>
+            <th>Completed</th>
+            <th>Avg. Score</th>
+            <th>Completion %</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+}
+
+function renderAnalyticsRiskTable(filtered) {
+    const mandatory = courses.filter(c => c.category === 'Security' || c.category === 'Compliance').map(c => c.id);
+    if (!mandatory.length || !employees.length) {
+        return '<p class="text-muted mb-0">No mandatory/compliance rules configured.</p>';
+    }
+
+    const byEmployee = {};
+    filtered.forEach(e => {
+        if (!mandatory.includes(e.courseId)) return;
+        if (!byEmployee[e.employeeId]) byEmployee[e.employeeId] = [];
+        byEmployee[e.employeeId].push(e);
+    });
+
+    const risky = Object.entries(byEmployee).map(([empId, list]) => {
+        const emp = employees.find(e => e.id === empId);
+        const overdue = list.filter(en => {
+            if (!en.dueDate || en.status === 'completed') return false;
+            return new Date(en.dueDate) < new Date();
+        }).length;
+        const completed = list.filter(en => en.status === 'completed').length;
+        return { emp, overdue, completed, total: list.length };
+    }).filter(r => r.overdue > 0).sort((a, b) => b.overdue - a.overdue);
+
+    if (!risky.length) {
+        return '<p class="text-muted mb-0">No employees at risk based on current rules.</p>';
+    }
+
+    const rows = risky.slice(0, 20).map(r => `
+      <tr>
+        <td>${r.emp?.name || r.emp?.email || r.emp?.id}</td>
+        <td>${r.emp?.department || '-'}</td>
+        <td>${r.total}</td>
+        <td>${r.completed}</td>
+        <td>${r.overdue}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Department</th>
+            <th>Mandatory Enrollments</th>
+            <th>Completed</th>
+            <th>Overdue</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+}
+
+function resetAnalyticsFilters() {
+    $('#analyticsCourseFilter').val('');
+    $('#analyticsDeptFilter').val('');
+    renderAnalytics();
+}
+
 
 // Course creation option handling
 function handleOptionSelection(option) {
@@ -1448,6 +1932,7 @@ function saveData() {
         localStorage.setItem('zenerom-courses', JSON.stringify(courses));
         localStorage.setItem('zenerom-quizattempts', JSON.stringify(quizAttempts));
         localStorage.setItem('zenerom-userdata', JSON.stringify(userData));
+        localStorage.setItem('smartlms-settings', JSON.stringify(appSettings));
         console.log('✓ Data saved. Courses:', courses.length);
     } catch (error) {
         console.error('Error saving data:', error);
@@ -1471,6 +1956,11 @@ function loadStoredData() {
             userData = JSON.parse(storedUserData);
         }
 
+        const storedSettings = localStorage.getItem('smartlms-settings');
+        if (storedSettings) {
+            appSettings = { ...appSettings, ...JSON.parse(storedSettings) };
+        }
+
         if (courses.length > 0) {
             applyUserProgress();
             checkAndUnlockContent();
@@ -1487,6 +1977,171 @@ function loadStoredData() {
         };
     }
 }
+
+function renderSettings(activeTab = 'general') {
+    // highlight tab
+    $('#settingsTabs button').removeClass('active');
+    $(`#settingsTabs button[data-settings-tab="${activeTab}"]`).addClass('active');
+
+    let html = '';
+    switch (activeTab) {
+        case 'general':
+            html = renderGeneralSettings();
+            break;
+        case 'branding':
+            html = renderBrandingSettings();
+            break;
+        case 'notifications':
+            html = renderNotificationSettings();
+            break;
+        case 'security':
+            html = renderSecuritySettings();
+            break;
+    }
+    $('#settingsContent').html(html);
+}
+
+function renderGeneralSettings() {
+    const s = appSettings.general;
+    return `
+      <h4 class="mb-3"><i class="fas fa-sliders-h me-2"></i>General Settings</h4>
+      <div class="mb-3">
+        <label class="form-label">Portal Name</label>
+        <input type="text" class="form-control" id="setPortalName" value="${s.portalName}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Default Dashboard</label>
+        <select class="form-select" id="setDefaultDashboard">
+          <option value="dashboard" ${s.defaultDashboard === 'dashboard' ? 'selected' : ''}>Dashboard</option>
+          <option value="courses" ${s.defaultDashboard === 'courses' ? 'selected' : ''}>Courses</option>
+          <option value="upload" ${s.defaultDashboard === 'upload' ? 'selected' : ''}>Upload Course</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Timezone</label>
+          <input type="text" class="form-control" id="setTimezone" value="${s.timezone}">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Language</label>
+          <select class="form-select" id="setLanguage">
+            <option value="en" ${s.language === 'en' ? 'selected' : ''}>English</option>
+            <option value="ar" ${s.language === 'ar' ? 'selected' : ''}>Arabic</option>
+          </select>
+        </div>
+      </div>
+    `;
+}
+
+function renderBrandingSettings() {
+    const s = appSettings.branding;
+    return `
+      <h4 class="mb-3"><i class="fas fa-palette me-2"></i>Branding</h4>
+      <div class="mb-3">
+        <label class="form-label">Primary Color</label>
+        <input type="color" class="form-control form-control-color" id="setPrimaryColor" value="${s.primaryColor}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Logo URL</label>
+        <input type="text" class="form-control" id="setLogoUrl" value="${s.logoUrl}">
+        <small class="text-muted">Public image URL for the header logo.</small>
+      </div>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="setDarkModeDefault" ${s.darkModeDefault ? 'checked' : ''}>
+        <label class="form-check-label" for="setDarkModeDefault">Use dark theme by default</label>
+      </div>
+    `;
+}
+
+function renderNotificationSettings() {
+    const s = appSettings.notifications;
+    return `
+      <h4 class="mb-3"><i class="fas fa-bell me-2"></i>Notifications</h4>
+      <div class="mb-3">
+        <label class="form-label">From Name</label>
+        <input type="text" class="form-control" id="setEmailFromName" value="${s.emailFromName}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">From Address</label>
+        <input type="email" class="form-control" id="setEmailFromAddress" value="${s.emailFromAddress}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Reminder Before Due (days)</label>
+        <input type="number" class="form-control" id="setReminderDays" value="${s.courseReminderDays}" min="0">
+      </div>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="setSendCompletionEmails" ${s.sendCompletionEmails ? 'checked' : ''}>
+        <label class="form-check-label" for="setSendCompletionEmails">Send email when learner completes a course</label>
+      </div>
+    `;
+}
+
+function renderSecuritySettings() {
+    const s = appSettings.security;
+    return `
+      <h4 class="mb-3"><i class="fas fa-shield-alt me-2"></i>Security</h4>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="setStrongPasswords" ${s.requireStrongPasswords ? 'checked' : ''}>
+        <label class="form-check-label" for="setStrongPasswords">Require strong passwords for admin accounts</label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Session Timeout (minutes)</label>
+        <input type="number" class="form-control" id="setSessionTimeout" value="${s.sessionTimeoutMinutes}" min="5">
+      </div>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="setAllowSelfRegistration" ${s.allowSelfRegistration ? 'checked' : ''}>
+        <label class="form-check-label" for="setAllowSelfRegistration">Allow employees to self-register</label>
+      </div>
+    `;
+}
+
+function saveSettings() {
+    appSettings.general.portalName = $('#setPortalName').val().trim();
+    appSettings.general.timezone = $('#setTimezone').val().trim();
+    appSettings.general.language = $('#setLanguage').val();
+    appSettings.general.defaultDashboard = $('#setDefaultDashboard').val();
+
+    appSettings.branding.primaryColor = $('#setPrimaryColor').val();
+    appSettings.branding.logoUrl = $('#setLogoUrl').val().trim();
+    appSettings.branding.darkModeDefault = $('#setDarkModeDefault').is(':checked');
+
+    appSettings.notifications.emailFromName = $('#setEmailFromName').val().trim();
+    appSettings.notifications.emailFromAddress = $('#setEmailFromAddress').val().trim();
+    appSettings.notifications.courseReminderDays = parseInt($('#setReminderDays').val(), 10) || 0;
+    appSettings.notifications.sendCompletionEmails = $('#setSendCompletionEmails').is(':checked');
+
+    appSettings.security.requireStrongPasswords = $('#setStrongPasswords').is(':checked');
+    appSettings.security.sessionTimeoutMinutes = parseInt($('#setSessionTimeout').val(), 10) || 60;
+    appSettings.security.allowSelfRegistration = $('#setAllowSelfRegistration').is(':checked');
+
+    saveData();
+
+    // apply branding immediately
+    document.documentElement.style.setProperty('--primary-color', appSettings.branding.primaryColor);
+    if (appSettings.branding.darkModeDefault) {
+        setTheme('dark');
+    }
+
+    showNotification('Settings saved successfully', 'success');
+}
+
+function resetSettingsToStored() {
+    const stored = localStorage.getItem('smartlms-settings');
+    if (stored) {
+        appSettings = { ...appSettings, ...JSON.parse(stored) };
+        renderSettings(getCurrentSettingsTab());
+        showNotification('Settings reset to last saved values', 'info');
+    } else {
+        renderSettings(getCurrentSettingsTab());
+    }
+}
+
+function getCurrentSettingsTab() {
+    const active = $('#settingsTabs button.active').data('settings-tab');
+    return active || 'general';
+}
+
+
 
 // Export functions
 window.showSection = showSection;

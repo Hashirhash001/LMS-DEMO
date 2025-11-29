@@ -1,7 +1,7 @@
 // Theme management functionality
 
 function initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
+    const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
 
     // Update theme toggle state
@@ -57,12 +57,12 @@ function updateChartsTheme(theme) {
 }
 
 // System theme detection
-function detectSystemTheme() {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-    }
-    return 'light';
-}
+// function detectSystemTheme() {
+//     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+//         return 'dark';
+//     }
+//     return 'light';
+// }
 
 // Listen for system theme changes
 if (window.matchMedia) {
