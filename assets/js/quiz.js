@@ -31,6 +31,9 @@ let policyScore = 0;
 function renderModulePlayer() {
     if (!currentModule) return;
 
+    // Load training progress for this module
+    initializeTrainingProgress();
+
     const totalItems = currentModule.totalLessons + (currentModule.quiz ? 1 : 0);
     const completedItems = currentModule.completedLessons + (currentModule.quiz && currentModule.quiz.completed && currentModule.quiz.passed ? 1 : 0);
     const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
@@ -67,6 +70,7 @@ function renderModulePlayer() {
                         ${renderLessonsList()}
                     </div>
                 </div>
+
                 <div class="col-md-4">
                     ${renderModuleQuiz()}
                 </div>
@@ -129,6 +133,53 @@ function renderLessonsList() {
     }).join('');
 }
 
+function confirmTrainingAnswer(scenarioId) {
+    if (currentSelectedOption === null) {
+        showNotification('Please select an answer first', 'warning');
+        return;
+    }
+
+    if (trainingAnswerConfirmed) {
+        return;
+    }
+
+    trainingAnswerConfirmed = true;
+
+    // Get current scenario and option
+    const selectedOption = getCurrentScenarioOption();
+
+    if (!selectedOption) {
+        console.error('Could not get selected option');
+        return;
+    }
+
+    // Disable options
+    $('.training-option').css('pointer-events', 'none');
+    $('#confirmTrainingBtn').prop('disabled', true).html('<i class="fas fa-check-circle me-2"></i>Answer Submitted');
+
+    // Show feedback
+    const feedbackClass = selectedOption.correct ? 'alert-success' : 'alert-danger';
+    const feedbackIcon = selectedOption.correct ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
+    const feedbackTitle = selectedOption.correct ? '✓ Correct!' : '✗ Incorrect';
+
+    const feedbackHtml = `
+        <div class="alert ${feedbackClass}">
+            <h5><i class="fas ${feedbackIcon} me-2"></i>${feedbackTitle}</h5>
+            <p><strong>Explanation:</strong> ${selectedOption.explanation}</p>
+            ${selectedOption.correct ? '<p class="mb-0"><i class="fas fa-trophy text-warning me-2"></i>Great job! You demonstrated excellent judgment.</p>' : ''}
+        </div>
+    `;
+
+    $('#trainingFeedback').html(feedbackHtml).show();
+    $('#continueTrainingBtn').removeClass('d-none');
+
+    // Award points if correct
+    if (selectedOption.correct) {
+        const pointsEarned = 2; // 2 points per correct answer
+        completeTrainingModule(pointsEarned);
+    }
+}
+
 function renderModuleQuiz() {
     if (!currentModule.quiz) {
         return `
@@ -154,6 +205,18 @@ function renderModuleQuiz() {
     let statusText = 'Pending';
     let actionButton = '';
 
+    // FIXED: Show actual score instead of 0%
+    const actualScore = quiz.bestScore || 0;
+    const lastScore = quiz.lastScore || 0;
+
+    console.log('Quiz status:', {
+        completed: quiz.completed,
+        passed: quiz.passed,
+        bestScore: quiz.bestScore,
+        lastScore: quiz.lastScore,
+        actualScore: actualScore
+    });
+
     if (!canTakeQuiz) {
         statusText = `Complete all ${requiredLessons} lessons first`;
         statusIcon = 'fa-lock';
@@ -166,9 +229,19 @@ function renderModuleQuiz() {
     } else if (quiz.completed && quiz.passed) {
         statusColor = 'status-passed';
         statusIcon = 'fa-check-circle';
-        statusText = `Passed (${quiz.bestScore}%)`;
+        // FIXED: Display actual score, not 0%
+        statusText = `Passed (${actualScore}%)`;
         actionButton = `
             <button class="btn btn-outline-primary btn-quiz-action" onclick="retakeQuiz()">
+                <i class="fas fa-redo me-2"></i>Retake Quiz
+            </button>
+        `;
+    } else if (quiz.completed && !quiz.passed) {
+        statusColor = 'status-failed';
+        statusIcon = 'fa-times-circle';
+        statusText = `Failed (${lastScore}%) - Try Again`;
+        actionButton = `
+            <button class="btn btn-warning btn-quiz-action" onclick="retakeQuiz()">
                 <i class="fas fa-redo me-2"></i>Retake Quiz
             </button>
         `;
@@ -210,8 +283,14 @@ function renderModuleQuiz() {
                             <span class="quiz-meta-value">${quiz.passingScore}%</span>
                             <span class="quiz-meta-label">to pass</span>
                         </div>
+                        ${actualScore > 0 ? `
+                        <div class="quiz-meta-item">
+                            <i class="fas fa-trophy"></i>
+                            <span class="quiz-meta-value">${actualScore}%</span>
+                            <span class="quiz-meta-label">best score</span>
+                        </div>
+                        ` : ''}
                     </div>
-
                     <div class="quiz-action-area">
                         ${actionButton}
                     </div>
@@ -1868,21 +1947,41 @@ function showScenarioResults() {
 
 // Training management functions
 function continueTraining() {
-    // Reset current module and show selection
+    console.log('✓ Continue Training clicked');
+
+    // Save all training scores
+    const progress = saveTrainingProgress();
+
+    if (progress && progress.totalScore > 0) {
+        const totalScore = progress.totalScore;
+        showNotification(`Training progress saved! Total score: ${totalScore} points`, 'success');
+    }
+
+    // Reset interactive training state
     currentInteractiveModule = null;
 
-    if ($('#scenarioActivityArea').hasClass('d-none')) {
-        // In interactive hub, show module selection
-        $('#interactiveActivityArea').addClass('d-none');
-        $('#interactiveModuleSelect').removeClass('d-none');
-        $('#resetInteractiveBtn').addClass('d-none');
-        $('#continueTrainingBtn').addClass('d-none');
-    } else {
-        // In scenario hub, show scenario selection  
-        $('#scenarioActivityArea').addClass('d-none');
-        $('#scenarioSelection').removeClass('d-none');
-        $('#resetScenarioBtn').addClass('d-none');
-        $('#nextScenarioBtn').addClass('d-none');
+    // Hide all training areas
+    $('#interactiveActivityArea').addClass('d-none');
+    $('#scenarioActivityArea').addClass('d-none');
+    $('#trainingResultsArea').addClass('d-none');
+
+    // Hide training selection screens
+    $('#interactiveModuleSelect').addClass('d-none');
+    $('#scenarioSelection').addClass('d-none');
+
+    // Hide all training control buttons
+    $('#resetInteractiveBtn, #continueTrainingBtn, #resetScenarioBtn, #nextScenarioBtn').addClass('d-none');
+
+    // Navigate back to module view
+    if (typeof showSection === 'function') {
+        showSection('module');
+    }
+
+    // Refresh module display to show updated progress
+    if (typeof renderModulePlayer === 'function') {
+        setTimeout(() => {
+            renderModulePlayer();
+        }, 100);
     }
 }
 
@@ -2012,84 +2111,309 @@ function isModuleReadyForQuiz(module) {
     return module.completedLessons >= module.totalLessons && module.quiz && !module.quiz.completed;
 }
 
-// Quiz functions
 function startQuiz() {
-    if (!currentModule.quiz) return;
+    console.log('🎯 startQuiz() called');
 
+    // Validate module exists
+    if (!currentModule) {
+        console.error('❌ No current module selected');
+        showNotification('Please select a module first', 'error');
+        return;
+    }
+
+    // Validate quiz exists
+    if (!currentModule.quiz) {
+        console.error('❌ No quiz available for module:', currentModule.id);
+        showNotification('No quiz available for this module', 'error');
+        return;
+    }
+
+    // Check lesson completion requirement
     if (currentModule.completedLessons < currentModule.totalLessons) {
-        showNotification(`Please complete all ${currentModule.totalLessons} lessons before taking the quiz.`, 'warning');
+        const remaining = currentModule.totalLessons - currentModule.completedLessons;
+        showNotification(`Please complete all ${currentModule.totalLessons} lessons before taking the quiz. (${remaining} remaining)`, 'warning');
         return;
     }
 
     currentQuizData = currentModule.quiz;
+
+    // CRITICAL: Validate quiz structure
+    if (!currentQuizData.questions) {
+        console.error('❌ Quiz has no questions property:', currentQuizData);
+        showNotification('Quiz data is malformed (missing questions)', 'error');
+        return;
+    }
+
+    if (!Array.isArray(currentQuizData.questions)) {
+        console.error('❌ Quiz questions is not an array:', typeof currentQuizData.questions);
+        showNotification('Quiz data is malformed (questions not array)', 'error');
+        return;
+    }
+
+    if (currentQuizData.questions.length === 0) {
+        console.error('❌ Quiz has zero questions');
+        showNotification('This quiz has no questions', 'error');
+        return;
+    }
+
+    console.log('✓ Quiz validated:', currentQuizData.questions.length, 'questions');
+    console.log('✓ Quiz structure:', currentQuizData);
+
+    // Initialize quiz state
     currentQuestionIndex = 0;
     userAnswers = [];
     isQuizSubmitted = false;
-    timeRemaining = currentQuizData.timeLimit * 60;
+    timeRemaining = (currentQuizData.timeLimit || 30) * 60;
 
-    currentQuizData.attempts++;
+    // Increment attempt counter
+    currentQuizData.attempts = (currentQuizData.attempts || 0) + 1;
 
+    // Save updated attempts
+    if (typeof saveData === 'function') {
+        saveData();
+    }
+
+    // Render quiz interface and switch view
     renderQuizInterface();
     showSection('quiz');
     startQuizTimer();
 }
 
+// Global variable to track if answer is confirmed
+let answerConfirmed = false;
+let selectedOptionIndex = null;
+
+// FIX 1: Render Quiz Interface with Confirm Button
+// ============================================================================
 function renderQuizInterface() {
-    if (!currentQuizData || !currentQuizData.questions.length) return;
+    console.log('🎨 renderQuizInterface() called, questionIndex:', currentQuestionIndex);
+
+    // Validate quiz data
+    if (!currentQuizData || !currentQuizData.questions || !Array.isArray(currentQuizData.questions)) {
+        console.error('❌ Quiz data invalid');
+        showNotification('Quiz data not available', 'error');
+        showSection('module');
+        return;
+    }
+
+    if (currentQuizData.questions.length === 0) {
+        console.error('❌ Quiz has no questions');
+        showNotification('This quiz is empty', 'error');
+        showSection('module');
+        return;
+    }
 
     const question = currentQuizData.questions[currentQuestionIndex];
+    if (!question) {
+        console.error('❌ Question is null/undefined');
+        showSection('module');
+        return;
+    }
+
+    console.log('✓ Rendering question', currentQuestionIndex + 1, 'of', currentQuizData.questions.length);
+
+    // Reset confirmation state
+    answerConfirmed = false;
+    selectedOptionIndex = null;
+
     const progress = ((currentQuestionIndex + 1) / currentQuizData.questions.length) * 100;
+    const timeMinutes = Math.floor(timeRemaining / 60);
+    const timeSeconds = timeRemaining % 60;
 
     const html = `
         <div class="professional-quiz-container fade-in">
-            <div class="quiz-header-professional" style="background: linear-gradient(135deg, #6f42c1, #8b5fbf); color: white; padding: 2rem;">
-                <h2>${currentQuizData.title}</h2>
-                <p>Question ${currentQuestionIndex + 1} of ${currentQuizData.questions.length}</p>
+            <div class="quiz-header-professional">
+                <div class="quiz-title-section">
+                    <h2>${currentQuizData.title || 'Module Quiz'}</h2>
+                    <p>Question ${currentQuestionIndex + 1} of ${currentQuizData.questions.length}</p>
+                </div>
+                <div class="quiz-timer">
+                    <i class="fas fa-clock"></i>
+                    <span class="timer-text">${timeMinutes}:${timeSeconds.toString().padStart(2, '0')}</span>
+                </div>
             </div>
 
             <div class="quiz-progress-professional">
                 <div class="progress">
-                    <div class="progress-bar" style="width: ${progress}%"></div>
+                    <div class="progress-bar bg-primary" style="width: ${progress}%">
+                        <span class="progress-text">${progress.toFixed(0)}%</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="quiz-question-container" style="padding: 2rem;">
-                <h4>${question.text}</h4>
-                <div class="quiz-options-professional">
+            <div class="quiz-question-container">
+                <h4 class="question-number">Question ${currentQuestionIndex + 1}</h4>
+                <h3 class="question-text">${question.text || 'Question text missing'}</h3>
+
+                <div class="quiz-options-professional" id="quizOptions">
                     ${renderQuizOptions(question)}
                 </div>
+
+                <!-- Feedback area (hidden until confirmed) -->
+                <div id="answerFeedback" class="answer-feedback mt-4" style="display: none;"></div>
+
+                <!-- Confirm Answer Button -->
+                <div class="text-center mt-4">
+                    <button 
+                        id="confirmAnswerBtn" 
+                        class="btn btn-primary btn-lg confirm-answer-btn" 
+                        onclick="confirmAnswer()" 
+                        disabled>
+                        <i class="fas fa-check-circle me-2"></i>Confirm Answer
+                    </button>
+                </div>
             </div>
 
-            <div class="quiz-controls-professional" style="padding: 2rem;">
+            <div class="quiz-controls-professional mt-4">
                 <button class="btn btn-outline-secondary" onclick="previousQuestion()" ${currentQuestionIndex === 0 ? 'disabled' : ''}>
-                    Previous
+                    <i class="fas fa-chevron-left me-2"></i>Previous
                 </button>
-                <button class="btn btn-primary" onclick="nextQuestion()" ${currentQuestionIndex === currentQuizData.questions.length - 1 ? 'disabled' : ''}>
-                    Next
+
+                <div class="question-counter">
+                    <span>${currentQuestionIndex + 1} / ${currentQuizData.questions.length}</span>
+                </div>
+
+                <button 
+                    id="nextQuestionBtn" 
+                    class="btn btn-primary" 
+                    onclick="nextQuestion()" 
+                    style="display: none;">
+                    Next<i class="fas fa-chevron-right ms-2"></i>
                 </button>
-                ${currentQuestionIndex === currentQuizData.questions.length - 1 ? 
-                    '<button class="btn btn-success" onclick="submitQuiz()">Submit Quiz</button>' : ''
-                }
+
+                <button 
+                    id="submitQuizBtn" 
+                    class="btn btn-success" 
+                    onclick="submitQuiz()" 
+                    style="display: none;">
+                    Submit Quiz<i class="fas fa-check ms-2"></i>
+                </button>
             </div>
         </div>
     `;
 
     $('#quizPlayer').html(html);
 
-    if (userAnswers[currentQuestionIndex] !== undefined) {
-        setTimeout(() => selectOption(userAnswers[currentQuestionIndex]), 100);
+    // Restore previous answer if exists (only if not confirmed yet)
+    if (userAnswers[currentQuestionIndex] !== undefined && !answerConfirmed) {
+        setTimeout(() => {
+            selectQuizOption(userAnswers[currentQuestionIndex]);
+        }, 100);
     }
 }
 
+function selectQuizOption(index) {
+    console.log('Option selected:', index);
+
+    // Don't allow selection after answer is confirmed
+    if (answerConfirmed) {
+        return;
+    }
+
+    // Remove previous selections
+    $('.quiz-option-professional').removeClass('selected');
+
+    // Add selection to clicked option
+    $(`.quiz-option-professional[data-option-index="${index}"]`).addClass('selected');
+
+    // Store selected index
+    selectedOptionIndex = index;
+
+    // Enable confirm button
+    $('#confirmAnswerBtn').prop('disabled', false);
+
+    // Hide next/submit buttons until confirmed
+    $('#nextQuestionBtn, #submitQuizBtn').hide();
+}
+
+// FIX 4: Confirm Answer - Show Feedback After Confirmation
+// ============================================================================
+function confirmAnswer() {
+    if (selectedOptionIndex === null) {
+        showNotification('Please select an answer first', 'warning');
+        return;
+    }
+
+    if (answerConfirmed) {
+        return;
+    }
+
+    answerConfirmed = true;
+
+    // Store answer
+    userAnswers[currentQuestionIndex] = selectedOptionIndex;
+
+    const question = currentQuizData.questions[currentQuestionIndex];
+    const isCorrect = selectedOptionIndex === question.correctIndex;
+
+    console.log('Answer confirmed:', {
+        selected: selectedOptionIndex,
+        correct: question.correctIndex,
+        isCorrect: isCorrect
+    });
+
+    // Disable confirm button
+    $('#confirmAnswerBtn').prop('disabled', true).html('<i class="fas fa-check-circle me-2"></i>Answer Submitted');
+
+    // Disable all options (prevent changing answer)
+    $('.quiz-option-professional').css('pointer-events', 'none');
+
+    // Show feedback
+    showAnswerFeedback(isCorrect, question);
+
+    // Show next/submit button
+    if (currentQuestionIndex < currentQuizData.questions.length - 1) {
+        $('#nextQuestionBtn').show();
+    } else {
+        $('#submitQuizBtn').show();
+    }
+}
+
+// FIX 5: Show Answer Feedback
+// ============================================================================
+function showAnswerFeedback(isCorrect, question) {
+    const feedbackClass = isCorrect ? 'alert-success' : 'alert-danger';
+    const feedbackIcon = isCorrect ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
+    const feedbackTitle = isCorrect ? 'Correct!' : 'Incorrect';
+
+    const html = `
+        <div class="alert ${feedbackClass} answer-feedback">
+            <h5><i class="fas ${feedbackIcon} me-2"></i>${feedbackTitle}</h5>
+            <p><strong>Correct Answer:</strong> ${question.correctAnswer || question.options[question.correctIndex]}</p>
+            ${question.explanation ? `<p><strong>Explanation:</strong> ${question.explanation}</p>` : ''}
+        </div>
+    `;
+
+    $('#answerFeedback').html(html).show();
+}
+
 function renderQuizOptions(question) {
-    const options = question.options ? question.options.options : [];
+    if (!question) {
+        console.error('❌ Question is null');
+        return '<p class="alert alert-danger">Question data missing</p>';
+    }
+
+    let options = [];
+    if (question.options && Array.isArray(question.options)) {
+        options = question.options;
+    }
+
+    if (options.length === 0) {
+        console.error('❌ No options for question');
+        return '<p class="alert alert-warning">No answer options available</p>';
+    }
+
+    console.log('✓ Rendering', options.length, 'options');
 
     return options.map((option, index) => `
-        <div class="quiz-option-professional" onclick="selectOption(${index})" data-option-index="${index}">
+        <div class="quiz-option-professional" onclick="selectQuizOption(${index})" data-option-index="${index}">
             <div class="option-indicator">
-                <span>${String.fromCharCode(65 + index)}</span>
+                <span class="option-letter">${String.fromCharCode(65 + index)}</span>
             </div>
-            <div class="option-text">${option}</div>
+            <div class="option-text">${option || 'Option ' + (index + 1)}</div>
+            <div class="option-checkmark">
+                <i class="fas fa-check-circle"></i>
+            </div>
         </div>
     `).join('');
 }
@@ -2101,10 +2425,18 @@ function selectOption(optionIndex) {
 }
 
 function nextQuestion() {
-    if (currentQuestionIndex < currentQuizData.questions.length - 1) {
-        currentQuestionIndex++;
-        renderQuizInterface();
+    if (selectedOptionIndex === null) {
+        showNotification('Please select an answer', 'warning');
+        return;
     }
+
+    if (!answerConfirmed) {
+        showNotification('Please confirm your answer first', 'warning');
+        return;
+    }
+
+    currentQuestionIndex++;
+    renderQuizInterface();
 }
 
 function previousQuestion() {
@@ -2115,35 +2447,291 @@ function previousQuestion() {
 }
 
 function submitQuiz() {
-    if (isQuizSubmitted) return;
-    isQuizSubmitted = true;
-
-    const results = calculateQuizResults();
-
-    // Update completion status immediately
-    currentQuizData.completed = true;
-    currentQuizData.passed = results.passed;
-    currentQuizData.bestScore = Math.max(currentQuizData.bestScore, results.score);
-
-    if (results.passed) {
-        // Use the global marking function from app.js
-        if (typeof markQuizComplete === 'function') {
-            markQuizComplete(currentQuizData.id, true);
-        }
-
-        currentModule.completedQuizzes = 1;
-        currentCourse.completedQuizzes++;
+    if (selectedOptionIndex === null || !answerConfirmed) {
+        showNotification('Please confirm your answer before submitting', 'warning');
+        return;
     }
 
-    showNotification(results.passed ? 'Quiz passed! Well done!' : 'Quiz not passed. Please review and try again.', 
-                    results.passed ? 'success' : 'warning');
+    console.log('🎯 Submitting quiz...');
+    console.log('User answers:', userAnswers);
 
-    // Return to module view with fresh data
-    setTimeout(() => {
-        if (typeof showSection === 'function') {
-            showSection('module');
+    // Stop timer
+    if (quizTimer) {
+        clearInterval(quizTimer);
+    }
+
+    // Calculate score ACCURATELY
+    let correctCount = 0;
+    const questions = currentQuizData.questions;
+
+    questions.forEach((question, index) => {
+        const userAnswer = userAnswers[index];
+        const correctAnswer = question.correctIndex;
+
+        console.log(`Q${index + 1}: User=${userAnswer}, Correct=${correctAnswer}, Match=${userAnswer === correctAnswer}`);
+
+        if (userAnswer === correctAnswer) {
+            correctCount++;
         }
-    }, 2000);
+    });
+
+    const totalQuestions = questions.length;
+    const scorePercent = Math.round((correctCount / totalQuestions) * 100);
+    const passed = scorePercent >= currentQuizData.passingScore;
+
+    console.log('Final Score:', {
+        correct: correctCount,
+        total: totalQuestions,
+        percent: scorePercent,
+        passing: currentQuizData.passingScore,
+        passed: passed
+    });
+
+    // Update quiz data
+    currentQuizData.completed = true;
+    currentQuizData.passed = passed;
+    currentQuizData.bestScore = Math.max(currentQuizData.bestScore || 0, scorePercent);
+    currentQuizData.lastScore = scorePercent;
+
+    // Mark as complete if passed
+    if (passed) {
+        markQuizComplete(currentQuizData.id, true);
+    }
+
+    // Save data
+    if (typeof saveData === 'function') {
+        saveData();
+    }
+
+    // Show results
+    showQuizResults(correctCount, totalQuestions, scorePercent, passed);
+}
+
+function showQuizResults(correctCount, totalQuestions, scorePercent, passed) {
+    const resultClass = passed ? 'text-success' : 'text-danger';
+    const resultIcon = passed ? 'fa-check-circle' : 'fa-times-circle';
+    const resultText = passed ? 'Congratulations! You Passed!' : 'You Did Not Pass';
+
+    let skillLevel = 'Needs Improvement';
+    if (scorePercent >= 90) skillLevel = 'Excellent';
+    else if (scorePercent >= 80) skillLevel = 'Very Good';
+    else if (scorePercent >= 70) skillLevel = 'Good';
+    else if (scorePercent >= 60) skillLevel = 'Average';
+
+    const html = `
+        <div class="quiz-results-container fade-in">
+            <div class="text-center mb-4">
+                <i class="fas ${resultIcon} ${resultClass}" style="font-size: 72px;"></i>
+                <h2 class="${resultClass} mt-3">${resultText}</h2>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="results-summary">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 class="${resultClass}">${scorePercent}%</h3>
+                                <p class="text-muted">Score</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3>${correctCount}/${totalQuestions}</h3>
+                                <p class="text-muted">Correct Answers</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3>${currentQuizData.passingScore}%</h3>
+                                <p class="text-muted">Passing Score</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3>${skillLevel}</h3>
+                                <p class="text-muted">Performance</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5>Question Review</h5>
+                    <div class="question-review">
+                        ${renderQuestionReview()}
+                    </div>
+
+                    <div class="mt-4 text-center">
+                        ${!passed ? `
+                            <button class="btn btn-warning me-2" onclick="retakeQuiz()">
+                                <i class="fas fa-redo me-2"></i>Retake Quiz
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-primary" onclick="showSection('module')">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Module
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    $('#quizPlayer').html(html);
+}
+
+function renderQuestionReview() {
+    return currentQuizData.questions.map((question, index) => {
+        const userAnswer = userAnswers[index];
+        const isCorrect = userAnswer === question.correctIndex;
+        const statusClass = isCorrect ? 'text-success' : 'text-danger';
+        const statusIcon = isCorrect ? 'fa-check-circle' : 'fa-times-circle';
+
+        return `
+            <div class="card mb-3">
+                <div class="card-header ${isCorrect ? 'bg-success' : 'bg-danger'} text-white">
+                    <strong>Q${index + 1}</strong>
+                    <span class="float-end">
+                        <i class="fas ${statusIcon}"></i> ${isCorrect ? 'Correct' : 'Incorrect'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p><strong>${question.text}</strong></p>
+                    ${userAnswer !== undefined ? `
+                        <p class="${statusClass}">
+                            <strong>Your answer:</strong> ${question.options[userAnswer]}
+                        </p>
+                    ` : ''}
+                    ${!isCorrect ? `
+                        <p class="text-success">
+                            <strong>Correct answer:</strong> ${question.options[question.correctIndex]}
+                        </p>
+                        ${question.explanation ? `<p class="text-muted"><em>${question.explanation}</em></p>` : ''}
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Export functions
+window.renderQuizInterface = renderQuizInterface;
+window.selectQuizOption = selectQuizOption;
+window.confirmAnswer = confirmAnswer;
+window.nextQuestion = nextQuestion;
+window.previousQuestion = previousQuestion;
+window.submitQuiz = submitQuiz;
+
+console.log('✅ Quiz fixes loaded - Accurate scoring and confirm button implemented');
+
+function renderQuizResults(results) {
+    if (!currentQuizData || !currentQuizData.questions) return;
+
+    const passedClass = results.passed ? "passed" : "failed";
+    const quizTitle = currentQuizData.title || "Quiz Results";
+
+    // Build question review list
+    const questionsHtml = currentQuizData.questions
+        .map((question, index) => {
+            const userAnswerIndex = userAnswers[index];
+            const hasOptions = question.options && question.options.options;
+            const correctIndex = hasOptions
+                ? question.options.correctIndex
+                : question.correctAnswer;
+            const isCorrect = userAnswerIndex === correctIndex;
+
+            const questionClass = isCorrect ? "correct" : "incorrect";
+            const userAnswerText = hasOptions && userAnswerIndex !== undefined
+                ? question.options.options[userAnswerIndex]
+                : "No answer selected";
+            const correctAnswerText = hasOptions
+                ? question.options.options[correctIndex]
+                : question.correctAnswer;
+
+            const explanation = question.explanation || "";
+
+            return `
+                <div class="question-review-item ${questionClass}">
+                    <div class="question-review-header">
+                        <span class="question-number">Q${index + 1}</span>
+                        <div class="question-status ${questionClass}">
+                            <i class="fas fa-${isCorrect ? "check-circle" : "times-circle"} me-1"></i>
+                            ${isCorrect ? "Correct" : "Incorrect"}
+                        </div>
+                    </div>
+                    <div class="question-review-content">
+                        <div class="question-text">${question.text}</div>
+                        <p><strong>Your answer:</strong> ${userAnswerText}</p>
+                        <p><strong>Correct answer:</strong> ${correctAnswerText}</p>
+                        ${
+                            explanation
+                                ? `<div class="explanation"><strong>Why:</strong> ${explanation}</div>`
+                                : ""
+                        }
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
+
+    const html = `
+        <div class="professional-quiz-results fade-in">
+            <div class="results-hero ${passedClass}">
+                <div class="score-display">
+                    <div class="score-circle">
+                        <div class="score-number">
+                            <span class="score-value">${results.score}</span>
+                            <span class="score-percent">%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="results-message">
+                    <h2 class="result-title">${quizTitle}</h2>
+                    <p class="result-description">
+                        You answered ${results.correctAnswers} of ${results.totalQuestions} questions correctly.
+                    </p>
+                    <p class="result-description">
+                        Status: ${results.passed ? "Passed" : "Not Passed"} (Passing score: ${currentQuizData.passingScore}%)
+                    </p>
+                </div>
+            </div>
+
+            <div class="results-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value">${results.correctAnswers}</div>
+                        <div class="stat-label">Correct</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value">${results.totalQuestions - results.correctAnswers}</div>
+                        <div class="stat-label">Incorrect</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value">${currentQuizData.passingScore}%</div>
+                        <div class="stat-label">Required</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question-review-section">
+                <h5>Question Review</h5>
+                <div class="questions-review-list">
+                    ${questionsHtml}
+                </div>
+            </div>
+
+            <div class="results-actions mt-4">
+                <button class="btn btn-outline-secondary me-2" onclick="showSection('module')">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Module
+                </button>
+                <button class="btn btn-primary" onclick="retakeQuiz()">
+                    <i class="fas fa-redo me-2"></i>Retake Quiz
+                </button>
+            </div>
+        </div>
+    `;
+
+    $("#quizResults").html(html);
 }
 
 function calculateQuizResults() {
@@ -2162,14 +2750,87 @@ function calculateQuizResults() {
     return { score, correctAnswers, totalQuestions, passed };
 }
 
+// Global timer variable
+// let quizTimer = null;
+// let timeRemaining = 0;
+
+// Global training score (add at top of file if not exists)
+let trainingTotalScore = 0;
+
+// ============================================================================
+// FIX 1: Quiz Timer - Real-time Countdown
+// ============================================================================
+
 function startQuizTimer() {
+    // Clear any existing timer
+    if (quizTimer) {
+        clearInterval(quizTimer);
+    }
+
+    // Set initial time (already set in startQuiz)
+    console.log('⏰ Starting quiz timer with', timeRemaining, 'seconds');
+
+    // Update timer display immediately
+    updateTimerDisplay();
+
+    // Start interval that runs every second
     quizTimer = setInterval(() => {
         timeRemaining--;
+
+        console.log('⏱️ Time remaining:', timeRemaining, 'seconds');
+
+        // Update display
+        updateTimerDisplay();
+
+        // Check if time is up
         if (timeRemaining <= 0) {
-            stopQuizTimer();
-            submitQuiz();
+            clearInterval(quizTimer);
+            console.log('⏰ Time is up!');
+            showNotification('Time is up! Submitting quiz...', 'warning');
+
+            // Auto-submit quiz
+            setTimeout(() => {
+                submitQuiz();
+            }, 1000);
         }
-    }, 1000);
+
+        // Warning at 1 minute remaining
+        if (timeRemaining === 60) {
+            showNotification('Only 1 minute remaining!', 'warning');
+        }
+
+        // Warning at 30 seconds
+        if (timeRemaining === 30) {
+            showNotification('30 seconds left!', 'warning');
+        }
+    }, 1000); // Run every 1 second (1000ms)
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+
+    const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    // Update timer text
+    $('.timer-text').text(timerText);
+
+    // Change color if time is running out
+    if (timeRemaining <= 60) {
+        $('.timer-text').css('color', '#dc3545'); // Red
+    } else if (timeRemaining <= 120) {
+        $('.timer-text').css('color', '#ffc107'); // Yellow
+    } else {
+        $('.timer-text').css('color', '#ffffff'); // White
+    }
+}
+
+function stopQuizTimer() {
+    if (quizTimer) {
+        clearInterval(quizTimer);
+        quizTimer = null;
+        console.log('⏰ Quiz timer stopped');
+    }
 }
 
 function stopQuizTimer() {
@@ -2180,8 +2841,179 @@ function stopQuizTimer() {
 }
 
 function retakeQuiz() {
-    startQuiz();
+    console.log('🔄 Retaking quiz');
+
+    if (!currentModule || !currentModule.quiz) {
+        console.error('❌ Cannot retake quiz: No module or quiz data');
+        showNotification('Cannot retake quiz. Please try again.', 'error');
+        return;
+    }
+
+    // Validate quiz has questions
+    if (!currentModule.quiz.questions || currentModule.quiz.questions.length === 0) {
+        console.error('❌ Quiz has no questions');
+        showNotification('This quiz has no questions', 'error');
+        return;
+    }
+
+    // Reset quiz state
+    currentQuizData = currentModule.quiz;
+    currentQuestionIndex = 0;
+    userAnswers = [];
+    isQuizSubmitted = false;
+    timeRemaining = (currentQuizData.timeLimit || 30) * 60;
+
+    // Increment attempt counter
+    currentQuizData.attempts = (currentQuizData.attempts || 0) + 1;
+
+    console.log('✓ Quiz reset for retake, attempt:', currentQuizData.attempts);
+
+    // Save data and start quiz
+    if (typeof saveData === 'function') {
+        saveData();
+    }
+
+    renderQuizInterface();
+    showSection('quiz');
+    startQuizTimer();
 }
+
+function saveTrainingProgress() {
+    try {
+        const progress = {
+            totalScore: trainingTotalScore || 0,
+            interactiveScore: window.interactiveScore || 0,
+            passwordScore: window.passwordScore || 0,
+            policyScore: window.policyScore || 0,
+            timestamp: Date.now(),
+            moduleId: currentModule ? currentModule.id : null,
+            moduleName: currentModule ? currentModule.title : null
+        };
+
+        // Save for current module
+        if (progress.moduleId) {
+            localStorage.setItem(`training-progress-${progress.moduleId}`, JSON.stringify(progress));
+        }
+
+        // Save global training progress
+        localStorage.setItem('training-progress-global', JSON.stringify(progress));
+
+        console.log('✓ Training progress saved:', progress);
+        return progress;
+    } catch (error) {
+        console.error('❌ Error saving training progress:', error);
+        return null;
+    }
+}
+
+// Load training progress from localStorage
+function loadTrainingProgress(moduleId) {
+    try {
+        let progress = null;
+
+        if (moduleId) {
+            // Try to load module-specific progress
+            const saved = localStorage.getItem(`training-progress-${moduleId}`);
+            if (saved) {
+                progress = JSON.parse(saved);
+            }
+        }
+
+        // If no module-specific progress, load global
+        if (!progress) {
+            const globalSaved = localStorage.getItem('training-progress-global');
+            if (globalSaved) {
+                progress = JSON.parse(globalSaved);
+            }
+        }
+
+        if (progress) {
+            // Restore scores
+            trainingTotalScore = progress.totalScore || 0;
+            if (window.interactiveScore !== undefined) {
+                window.interactiveScore = progress.interactiveScore || 0;
+            }
+            if (window.passwordScore !== undefined) {
+                window.passwordScore = progress.passwordScore || 0;
+            }
+            if (window.policyScore !== undefined) {
+                window.policyScore = progress.policyScore || 0;
+            }
+
+            console.log('✓ Training progress loaded:', progress);
+
+            // Update display
+            updateTrainingProgressDisplay();
+        }
+
+        return progress;
+    } catch (error) {
+        console.error('❌ Error loading training progress:', error);
+        return null;
+    }
+}
+
+// Update training progress display
+function updateTrainingProgressDisplay() {
+    const totalScore = trainingTotalScore || 0;
+    const maxScore = 30; // Adjust based on your training modules
+
+    // Update score badge
+    $('#interactiveScoreBadge').text(`Score: ${totalScore}/${maxScore} points`);
+
+    // Update progress bar
+    const progressPercent = Math.round((totalScore / maxScore) * 100);
+    $('#interactiveProgressBar').css('width', `${progressPercent}%`);
+
+    // Update progress text
+    if (totalScore === 0) {
+        $('#interactiveProgressText').text('Ready to start interactive security training');
+    } else if (totalScore >= maxScore) {
+        $('#interactiveProgressText').text('All training modules completed! Excellent work!');
+    } else {
+        $('#interactiveProgressText').text(`Training in progress - ${totalScore}/${maxScore} points earned`);
+    }
+
+    console.log('✓ Training display updated:', { totalScore, maxScore, progressPercent });
+}
+
+// Updated: Add score when training completed
+function completeTrainingModule(pointsEarned) {
+    trainingTotalScore += pointsEarned;
+
+    console.log('✓ Training module completed:', {
+        pointsEarned: pointsEarned,
+        totalScore: trainingTotalScore
+    });
+
+    // Save progress
+    saveTrainingProgress();
+
+    // Update display
+    updateTrainingProgressDisplay();
+
+    // Show notification
+    showNotification(`Great job! You earned ${pointsEarned} points!`, 'success');
+}
+
+// Initialize training progress on page load
+function initializeTrainingProgress() {
+    if (currentModule) {
+        loadTrainingProgress(currentModule.id);
+    } else {
+        loadTrainingProgress(null);
+    }
+}
+
+// Export functions
+window.startQuizTimer = startQuizTimer;
+window.updateTimerDisplay = updateTimerDisplay;
+window.stopQuizTimer = stopQuizTimer;
+window.saveTrainingProgress = saveTrainingProgress;
+window.loadTrainingProgress = loadTrainingProgress;
+window.updateTrainingProgressDisplay = updateTrainingProgressDisplay;
+window.completeTrainingModule = completeTrainingModule;
+window.initializeTrainingProgress = initializeTrainingProgress;
 
 // Export all functions to global scope
 window.renderModulePlayer = renderModulePlayer;

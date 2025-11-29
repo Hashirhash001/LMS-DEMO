@@ -11,7 +11,7 @@
     --danger-color: #ef4444;
     --info-color: #3b82f6;
     --sidebar-width: 280px;
-    --sidebar-collapsed-width: 80px;
+    --sidebar-collapsed-width: 110px;
     --header-height: 70px;
     --quiz-primary: #6366f1;
     --quiz-correct: #059669;
@@ -377,9 +377,9 @@ body {
 }
 
 .user-avatar-header {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    /* border-radius: 50%; */
     cursor: pointer;
 }
 
@@ -1486,4 +1486,105 @@ body {
 
 .bg-danger {
     background-color: var(--danger-color) !important;
+}
+
+/* HIDE checkmark by default */
+.quiz-option-professional .option-checkmark {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+/* SHOW checkmark ONLY on selected option */
+.quiz-option-professional.selected .option-checkmark {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Add visual feedback for selection */
+.quiz-option-professional {
+    cursor: pointer;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.quiz-option-professional:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.quiz-option-professional.selected {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+}
+
+/* Training option styling - no default checkmarks */
+.training-option {
+    cursor: pointer;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.training-option:hover {
+    border-color: #0ca8d6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.training-option.selected {
+    border-color: #28a745;
+    background-color: #f0f9f4;
+}
+
+/* Hide feedback until confirmed */
+.training-feedback {
+    display: none;
+}
+
+.training-feedback.show {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Confirm button styling */
+.confirm-answer-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 20px;
+}
+
+.confirm-answer-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.confirm-answer-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
 }

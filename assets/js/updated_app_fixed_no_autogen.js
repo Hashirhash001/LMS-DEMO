@@ -1,6 +1,6 @@
 // Zenerom LMS - Advanced Learning Management System
-// FINAL VERSION: NO AUTO-GENERATION OF QUIZ OPTIONS
-// All quiz options MUST come from CSV only
+// Enhanced with proper course progression and completion tracking
+// FIXED: Removed auto-generation of placeholder options from app.js
 
 // Global variables
 let courses = [];
@@ -9,6 +9,7 @@ let currentModule = null;
 let currentLesson = null;
 let currentQuiz = null;
 let quizAttempts = {};
+// FIXED: Add completion tracking
 let userData = {
     completedLessons: [],
     completedQuizzes: [],
@@ -16,20 +17,12 @@ let userData = {
 };
 
 // Initialize the application
-$(document).ready(function() {
-    initializeApp();
-    setupEventListeners();
-    loadStoredData();
-    showSection('upload');
-});
-
-// Initialize application
-function initializeApp() {
+document.ready(function initializeApp() {
     console.log('Zenerom LMS Advanced Platform initialized');
     updateStats();
     initializeSidebar();
     initializeTheme();
-}
+});
 
 // Setup event listeners
 function setupEventListeners() {
@@ -72,6 +65,7 @@ function setupEventListeners() {
 function initializeSidebar() {
     const sidebarState = localStorage.getItem('sidebar-collapsed');
     if (sidebarState === 'true') {
+        $('body').addClass('collapsed');
         $('#sidebar').addClass('collapsed');
         $('#mainContent').addClass('sidebar-collapsed');
         $('.top-header').addClass('sidebar-collapsed');
@@ -87,6 +81,7 @@ function toggleSidebar() {
     mainContent.toggleClass('sidebar-collapsed');
     topHeader.toggleClass('sidebar-collapsed');
 
+    // Save state
     const isCollapsed = sidebar.hasClass('collapsed');
     localStorage.setItem('sidebar-collapsed', isCollapsed);
     showNotification(isCollapsed ? 'Sidebar collapsed' : 'Sidebar expanded', 'info');
@@ -97,7 +92,7 @@ function toggleMobileSidebar() {
 }
 
 function handleResize() {
-    if ($(window).width() > 1024) {
+    if (window.innerWidth > 1024) {
         $('#sidebar').removeClass('mobile-open');
     }
 }
@@ -121,16 +116,18 @@ function setTheme(theme) {
     localStorage.setItem('theme', theme);
 }
 
-// Navigation
+// FIXED: Enhanced navigation with forced data refresh
 function showSection(sectionName) {
     console.log('Navigating to section:', sectionName);
+    // FIXED: Force data refresh on every navigation
+    loadStoredData();
 
     $('.section').removeClass('active');
     $('#' + sectionName + '-section').addClass('active');
 
+    // FIXED: Update page content with latest data
     switch(sectionName) {
         case 'courses':
-            // Use in‑memory state: it already has latest unlock info
             renderCourseDashboard();
             break;
         case 'dashboard':
@@ -147,8 +144,12 @@ function showSection(sectionName) {
             }
             break;
         case 'upload':
+            // Upload section is static
             break;
+        default:
+            console.log('Unknown section:', sectionName);
     }
+    console.log('Navigated to ' + sectionName + ' with fresh data');
 }
 
 function updateActiveNav(activeLink) {
@@ -158,6 +159,7 @@ function updateActiveNav(activeLink) {
 
 // Dashboard rendering
 function renderDashboard() {
+    // Dashboard functionality can be added here
     console.log('Dashboard rendered');
 }
 
@@ -184,6 +186,7 @@ function setupCsvUpload() {
     const fileInput = $('#csvFileInput');
     const uploadArea = $('#csvUploadArea');
 
+    // Drag and drop
     uploadArea.on('dragover', function(e) {
         e.preventDefault();
         $(this).addClass('dragover');
@@ -202,6 +205,7 @@ function setupCsvUpload() {
         }
     });
 
+    // File input change
     fileInput.on('change', function() {
         if (this.files.length > 0) {
             handleCsvFile(this.files[0]);
@@ -215,10 +219,12 @@ function handleCsvFile(file) {
         return;
     }
 
+    // Show file info
     $('.upload-content').hide();
     $('#csvFileInfo').show();
     $('#csvFileName').text(file.name);
 
+    // Store file for processing
     window.selectedCsvFile = file;
 }
 
@@ -235,9 +241,11 @@ function processCsvFile() {
         return;
     }
 
+    // Show progress
     $('#csvProgressContainer').show();
     $('#csvUploadBtn').prop('disabled', true).text('Processing...');
 
+    // Parse CSV file
     parseCsvFile(window.selectedCsvFile);
 }
 
@@ -253,20 +261,28 @@ function parseCsvFile(file) {
                 throw new Error('CSV file appears to be empty or invalid');
             }
 
+            console.log('Raw CSV lines:', lines.length);
+            console.log('First few lines:', lines.slice(0, 3));
+
+            // Parse CSV headers - handle quoted fields properly
             const headers = parseCSVLine(lines[0]);
+
+            // Create header index mapping
             const headerIndex = {};
             headers.forEach((header, index) => {
                 headerIndex[header] = index;
             });
 
-            console.log('CSV Headers:', headers);
-            console.log('Header Index Map:', headerIndex);
+            console.log('CSV Headers found:', headers);
+            console.log('Header mapping:', headerIndex);
+            console.log('Processing', lines.length - 1, 'data rows');
 
+            // Parse course data
             const courseMap = {};
             let totalLessons = 0;
             let totalQuizzes = 0;
 
-            // Progress simulation
+            // Simulate progress
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 8;
@@ -274,23 +290,24 @@ function parseCsvFile(file) {
 
                 if (progress < 30) {
                     $('#csvProgressText').text('Parsing course structure...');
-                } else if (progress < 60) {
+                }
+                if (progress >= 30 && progress < 60) {
                     $('#csvProgressText').text('Creating quizzes and lessons...');
-                } else if (progress < 90) {
+                }
+                if (progress >= 60 && progress < 90) {
                     $('#csvProgressText').text('Finalizing course setup...');
                 }
-
                 if (progress >= 100) {
                     clearInterval(progressInterval);
                 }
-            }, 150);
+            }, 100);
 
-            // Process CSV data
+            // Process the actual data
             for (let i = 1; i < lines.length; i++) {
                 const cells = parseCSVLine(lines[i]);
 
                 if (cells.length < headers.length) {
-                    console.warn('Skipping incomplete row', i);
+                    console.log('Skipping line', i, '- insufficient cells:', cells.length, 'vs', headers.length);
                     continue;
                 }
 
@@ -298,9 +315,14 @@ function parseCsvFile(file) {
                 const moduleId = cells[headerIndex['module_id']];
                 const lessonId = cells[headerIndex['lesson_id']];
 
-                if (!courseId) continue;
+                console.log('Processing row', i, 'Course:' + courseId, ', Module:' + moduleId, ', Lesson:' + lessonId);
 
-                // Initialize course
+                if (!courseId) {
+                    console.log('Skipping row - no course ID');
+                    continue;
+                }
+
+                // Initialize course if not exists
                 if (!courseMap[courseId]) {
                     courseMap[courseId] = {
                         id: courseId,
@@ -315,11 +337,12 @@ function parseCsvFile(file) {
                         totalQuizzes: 0,
                         completedLessons: 0,
                         completedQuizzes: 0,
-                        isLocked: false
+                        isLocked: false // FIXED: Will be set properly later
                     };
+                    console.log('Created course', courseId, courseMap[courseId].title);
                 }
 
-                // Initialize module
+                // Initialize module if not exists
                 if (moduleId && !courseMap[courseId].modules[moduleId]) {
                     courseMap[courseId].modules[moduleId] = {
                         id: moduleId,
@@ -333,55 +356,57 @@ function parseCsvFile(file) {
                         completedLessons: 0,
                         completedQuizzes: 0,
                         isCompleted: false,
-                        isLocked: false
+                        isLocked: false // Will be set properly later
                     };
+                    console.log('Created module', moduleId, courseMap[courseId].modules[moduleId].title);
                 }
 
-                // FIXED: Add lesson with proper video URL handling
+                // Add lesson if lesson_id is provided and module exists
                 if (moduleId && lessonId) {
                     const lessonType = cells[headerIndex['lesson_type']] || 'Reading';
-                    const rawVideoUrl = cells[headerIndex['video_url']] || '';
+                    const lessonContent = cells[headerIndex['lesson_content']];
+                    let videoUrl = cells[headerIndex['video_url']];
 
-                    console.log('Processing lesson:', {
-                        id: lessonId,
-                        title: cells[headerIndex['lesson_title']],
-                        type: lessonType,
-                        rawVideoUrl: rawVideoUrl
-                    });
+                    // Convert youtu.be URLs to embed format
+                    if (videoUrl) {
+                        if (videoUrl.includes('youtu.be')) {
+                            const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+                            videoUrl = 'https://www.youtube.com/embed/' + videoId;
+                            console.log('Converted youtu.be URL to embed format:', videoUrl);
+                        }
+                    }
 
                     const lesson = {
                         id: lessonId,
                         title: cells[headerIndex['lesson_title']] || 'Untitled Lesson',
-                        content: cells[headerIndex['lesson_content']] || '',
+                        content: lessonContent,
                         type: lessonType,
                         duration: parseInt(cells[headerIndex['lesson_duration']]) || 10,
                         order: parseInt(cells[headerIndex['lesson_order']]) || 1,
                         objectives: cells[headerIndex['learning_objectives']] || '',
                         completed: false,
-                        videoUrl: lessonType === 'Video' ? parseVideoUrl(rawVideoUrl) : null,
-                        interactiveContent: (lessonType === 'Interactive' || lessonType === 'Scenario' || lessonType === 'Assessment') ? 
-                            generateInteractiveContent(lessonType, cells[headerIndex['lesson_content']]) : null
+                        videoUrl: lessonType === 'Video' ? videoUrl : null,
+                        interactiveContent: (lessonType === 'Interactive' || lessonType === 'Scenario' || lessonType === 'Assessment') ? generateInteractiveContent(lessonType, lessonContent) : null
                     };
-
-                    if (lesson.videoUrl) {
-                        console.log('✅ Video lesson created:', lesson.id, 'URL:', lesson.videoUrl);
-                    }
 
                     courseMap[courseId].modules[moduleId].lessons.push(lesson);
                     courseMap[courseId].modules[moduleId].totalLessons++;
                     courseMap[courseId].totalLessons++;
                     totalLessons++;
+
+                    console.log('Added lesson', lessonId, 'to module', moduleId, lessonType);
                 }
 
-                // Create quiz
+                // Create quiz for module if quiz questions exist - ENHANCED FOR MULTIPLE QUESTIONS
                 const quizQuestions = cells[headerIndex['quiz_questions']];
                 if (quizQuestions && moduleId && !courseMap[courseId].modules[moduleId].quiz) {
                     courseMap[courseId].modules[moduleId].quiz = {
                         id: moduleId + '_quiz',
                         title: courseMap[courseId].modules[moduleId].title + ' Quiz',
+                        // FIXED: Parse multiple questions directly - NO auto-generation
                         questions: parseMultipleQuizQuestions(quizQuestions),
                         passingScore: 70,
-                        timeLimit: 10,
+                        timeLimit: 10, // minutes
                         attempts: 0,
                         maxAttempts: 3,
                         completed: false,
@@ -390,28 +415,37 @@ function parseCsvFile(file) {
                     };
                     courseMap[courseId].totalQuizzes++;
                     totalQuizzes++;
-                    console.log('✓ Added quiz to module', moduleId, 'with', courseMap[courseId].modules[moduleId].quiz.questions.length, 'questions');
+                    console.log('Added quiz to module', moduleId, 'with', courseMap[courseId].modules[moduleId].quiz.questions.length, 'questions');
                 }
             }
 
             // Convert to array and sort
             const newCourses = Object.values(courseMap).map((course, courseIndex) => {
+                // Convert modules object to array and sort by order
                 const modulesArray = Object.values(course.modules)
                     .sort((a, b) => a.order - b.order);
 
+                // For each module, sort lessons by order
                 modulesArray.forEach((module, moduleIndex) => {
                     module.lessons.sort((a, b) => a.order - b.order);
+
+                    // FIXED: Lock modules properly - first module of each course unlocked
                     module.isLocked = moduleIndex > 0;
+                    console.log('Module', module.id, 'has', module.lessons.length, 'lessons,', (module.quiz ? module.quiz.questions.length + ' questions' : 'no quiz'));
                 });
 
                 course.modules = modulesArray;
+
+                // FIXED: Lock courses properly - first course unlocked
                 course.isLocked = courseIndex > 0;
 
                 return course;
             });
 
+            // Add to courses array
             courses.push(...newCourses);
 
+            // Initialize quiz attempts
             newCourses.forEach(course => {
                 course.modules.forEach(module => {
                     if (module.quiz) {
@@ -420,34 +454,26 @@ function parseCsvFile(file) {
                 });
             });
 
+            // FIXED: Apply existing progress and check unlocks
             applyUserProgress();
             checkAndUnlockContent();
+
+            // Save to localStorage
             saveData();
 
+            // Show success
             $('#csvModal').modal('hide');
 
             setTimeout(() => {
+                // Count total questions
                 const totalQuestions = newCourses.reduce((sum, course) => {
                     return sum + course.modules.reduce((moduleSum, module) => {
                         return moduleSum + (module.quiz ? module.quiz.questions.length : 0);
                     }, 0);
                 }, 0);
 
-                // Count video lessons
-                const videoLessons = newCourses.reduce((sum, course) => {
-                    return sum + course.modules.reduce((moduleSum, module) => {
-                        return moduleSum + module.lessons.filter(lesson => lesson.type === 'Video' && lesson.videoUrl).length;
-                    }, 0);
-                }, 0);
-
-                console.log('\n✅ CSV Processing Complete!');
-                console.log('📊 Courses:', newCourses.length);
-                console.log('📚 Total Lessons:', totalLessons);
-                console.log('🎥 Video Lessons:', videoLessons);
-                console.log('❓ Quiz Questions:', totalQuestions);
-
                 showSuccessModal(newCourses.length, totalLessons, totalQuestions);
-            }, 500);
+            }, 150);
 
         } catch (error) {
             console.error('Error parsing CSV:', error);
@@ -459,118 +485,118 @@ function parseCsvFile(file) {
     reader.readAsText(file);
 }
 
-// Export functions
-window.parseVideoUrl = parseVideoUrl;
-
+// Enhanced CSV line parsing to handle quoted fields properly
 function parseCSVLine(line) {
     const cells = [];
     let current = '';
     let inQuotes = false;
+    let i = 0;
 
-    for (let i = 0; i < line.length; i++) {
+    while (i < line.length) {
         const char = line[i];
 
         if (char === '"') {
             if (inQuotes && line[i + 1] === '"') {
+                // Escaped quote
                 current += '"';
-                i++;
+                i += 2;
             } else {
+                // Toggle quote state
                 inQuotes = !inQuotes;
+                i++;
             }
         } else if (char === ',' && !inQuotes) {
+            // End of cell
             cells.push(current.trim());
             current = '';
+            i++;
         } else {
             current += char;
+            i++;
         }
     }
 
+    // Add the last cell
     cells.push(current.trim());
+
     return cells;
 }
 
-// ============================================================================
-// CRITICAL SECTION: QUIZ QUESTION PARSING
-// ============================================================================
-// FIXED: Parse questions from CSV ONLY - NO auto-generation allowed
-// Format: Question|CorrectAnswer|WrongOption1|WrongOption2|WrongOption3
-// ============================================================================
-
+// ENHANCED: Parse multiple questions separated by ~ - FIXED: NO auto-generation
 function parseMultipleQuizQuestions(quizString) {
     const questions = [];
     const questionPairs = quizString.split('~');
 
     questionPairs.forEach((pair, index) => {
-        const parts = pair.split('|').map(p => p.trim());
+        const parts = pair.split('|');
 
-        if (parts.length < 2) {
-            console.warn('⚠ Skipping question - insufficient data:', pair);
-            return;
+        if (parts.length >= 2) {
+            const questionText = parts[0].trim();
+            const correctAnswer = parts[1].trim();
+
+            // Get answer options from CSV (all provided options)
+            let options = [correctAnswer]; // Start with correct answer
+
+            // Add wrong options if provided in CSV (parts 2, 3, 4)
+            if (parts.length >= 5) {
+                // All 4 options provided: Q|Correct|Wrong1|Wrong2|Wrong3
+                options = [
+                    correctAnswer,
+                    parts[2].trim(),
+                    parts[3].trim(),
+                    parts[4].trim()
+                ];
+            } else if (parts.length === 4) {
+                // 3 options provided
+                options = [
+                    correctAnswer,
+                    parts[2].trim(),
+                    parts[3].trim()
+                ];
+            } else if (parts.length === 3) {
+                // 2 options provided
+                options = [
+                    correctAnswer,
+                    parts[2].trim()
+                ];
+            }
+            // If only question and correct answer, let quiz.js handle it
+
+            // Shuffle options but track correct answer position
+            const shuffledOptions = shuffleArray([...options]);
+            const correctIndex = shuffledOptions.indexOf(correctAnswer);
+
+            questions.push({
+                id: 'q' + (index + 1),
+                text: questionText,
+                type: 'multiplechoice',
+                options: shuffledOptions,
+                correctIndex: correctIndex,
+                correctAnswer: correctAnswer,
+                explanation: 'The correct answer is ' + correctAnswer
+            });
         }
-
-        const questionText = parts[0];
-        const correctAnswer = parts[1];
-
-        // Get options from CSV ONLY
-        let options = [];
-
-        if (parts.length >= 5) {
-            // All 4 options provided: Q|Correct|Wrong1|Wrong2|Wrong3
-            options = [
-                correctAnswer,
-                parts[2],
-                parts[3],
-                parts[4]
-            ];
-            console.log('✓ Question', index + 1, '- Using 4 options from CSV');
-        } else if (parts.length === 4) {
-            // 3 options provided
-            options = [
-                correctAnswer,
-                parts[2],
-                parts[3]
-            ];
-            console.log('⚠ Question', index + 1, '- Only 3 options in CSV');
-        } else if (parts.length === 3) {
-            // 2 options provided
-            options = [
-                correctAnswer,
-                parts[2]
-            ];
-            console.log('⚠ Question', index + 1, '- Only 2 options in CSV');
-        } else {
-            // Only correct answer - skip this question
-            console.error('✗ Question', index + 1, '- Insufficient options, SKIPPING');
-            return;
-        }
-
-        // Shuffle options
-        const shuffledOptions = shuffleArray([...options]);
-        const correctIndex = shuffledOptions.indexOf(correctAnswer);
-
-        questions.push({
-            id: 'q' + (index + 1),
-            text: questionText,
-            type: 'multiplechoice',
-            options: shuffledOptions,
-            correctIndex: correctIndex,
-            correctAnswer: correctAnswer,
-            explanation: 'The correct answer is: ' + correctAnswer
-        });
     });
 
-    console.log('📊 Parsed', questions.length, 'questions from CSV (NO auto-generation)');
+    console.log('Parsed', questions.length, 'questions from quiz string (CSV options only - NO auto-generation)');
     return questions;
 }
 
-// ============================================================================
-// REMOVED FUNCTIONS - NO LONGER USED
-// ============================================================================
-// These functions have been COMPLETELY REMOVED to prevent any auto-generation:
-// - generateQuizOptions() - REMOVED
-// - generateIncorrectOptions() - REMOVED
-// All quiz options MUST come from CSV file only
-// ============================================================================
+// FIXED: generateQuizOptions - REMOVED GENERIC OPTION GENERATION
+function generateQuizOptions(correctAnswer, questionIndex = 0) {
+    // FIXED: Return empty array - do NOT auto-generate placeholder options
+    // Options should ONLY come from CSV via parseMultipleQuizQuestions
+    // This prevents "Alternative 1, 2, 3" from appearing
+    return [];
+}
+
+// FIXED: generateIncorrectOptions - COMPLETELY DISABLED
+function generateIncorrectOptions(correctAnswer, questionIndex = 0) {
+    // FIXED: Do NOT generate any incorrect options
+    // All options must come from CSV file
+    // This ensures no generic placeholder text appears
+    return [];
+}
 
 function shuffleArray(array) {
     const shuffled = [...array];
@@ -581,71 +607,16 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-function parseVideoUrl(videoUrl) {
-    if (!videoUrl || videoUrl.trim() === '') {
-        return null;
-    }
-
-    videoUrl = videoUrl.trim();
-
-    console.log('📹 Parsing video URL:', videoUrl);
-
-    // Format 1: Already in embed format (youtube.com/embed/)
-    if (videoUrl.includes('youtube.com/embed/')) {
-        console.log('✓ Already in YouTube embed format');
-        return videoUrl;
-    }
-
-    // Format 2: Already in Vimeo player format
-    if (videoUrl.includes('player.vimeo.com/video/')) {
-        console.log('✓ Already in Vimeo embed format');
-        return videoUrl;
-    }
-
-    // Format 3: Short YouTube URL (youtu.be/)
-    if (videoUrl.includes('youtu.be/')) {
-        const videoId = videoUrl.split('youtu.be/')[1].split('?')[0].split('&')[0];
-        console.log('✓ Converted youtu.be format, ID:', videoId);
-        return 'https://www.youtube.com/embed/' + videoId;
-    }
-
-    // Format 4: Standard YouTube URL (youtube.com/watch?v=)
-    if (videoUrl.includes('youtube.com/watch')) {
-        const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-        const videoId = urlParams.get('v');
-        if (videoId) {
-            console.log('✓ Converted youtube.com/watch format, ID:', videoId);
-            return 'https://www.youtube.com/embed/' + videoId;
-        }
-    }
-
-    // Format 5: Vimeo standard URL
-    if (videoUrl.includes('vimeo.com/') && !videoUrl.includes('player.vimeo.com')) {
-        const videoId = videoUrl.split('vimeo.com/')[1].split('?')[0].split('/')[0];
-        console.log('✓ Converted Vimeo format, ID:', videoId);
-        return 'https://player.vimeo.com/video/' + videoId;
-    }
-
-    // Format 6: Direct video ID (11 characters for YouTube)
-    if (videoUrl.length === 11 && !videoUrl.includes('/') && !videoUrl.includes('.')) {
-        console.log('✓ Detected direct video ID:', videoUrl);
-        return 'https://www.youtube.com/embed/' + videoUrl;
-    }
-
-    console.warn('⚠️ Unknown video URL format, returning as-is:', videoUrl);
-    return videoUrl;
-}
-
 function generateDemoVideoUrl() {
+    // Return working video URLs
     const demoVideos = [
-        'https://www.youtube.com/embed/8aulMPhE12g',
-        'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        'https://www.youtube.com/embed/9bZkp7q19f0'
+        'https://www.youtube.com/embed/8aulMPhE12g',  // Using your provided URL
+        'https://www.youtube.com/embed/dQw4w9WgXcQ',  // Rick Roll as backup
+        'https://www.youtube.com/embed/9bZkp7q19f0'   // Gangnam Style as backup
     ];
+
     return demoVideos[Math.floor(Math.random() * demoVideos.length)];
 }
-
-
 
 function generateInteractiveContent(type, content) {
     if (type === 'Scenario') {
@@ -702,14 +673,14 @@ function renderCourseDashboard() {
     const grid = $('#coursesGrid');
 
     if (courses.length === 0) {
-        grid.html(`
-            <div class="empty-state">
-                <div class="empty-icon"><i class="fas fa-book-open"></i></div>
-                <h3>No courses yet</h3>
-                <p>Upload your first course to get started</p>
-                <button class="btn btn-primary" onclick="showSection('upload')">Create Course</button>
+        grid.html(`<div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-book-open"></i>
             </div>
-        `);
+            <h3>No courses yet</h3>
+            <p>Upload your first course to get started</p>
+            <button class="btn btn-primary" onclick="showSection('upload')">Create Course</button>
+        </div>`);
         return;
     }
 
@@ -720,6 +691,7 @@ function renderCourseDashboard() {
         const completedItems = course.completedLessons + course.completedQuizzes;
         const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
+        // FIXED: Check if course is locked
         const isLocked = course.isLocked;
         const lockClass = isLocked ? 'locked' : '';
         const lockIcon = isLocked ? '<i class="fas fa-lock"></i>' : '';
@@ -759,6 +731,7 @@ function renderCourseDashboard() {
 
     grid.html(html);
 
+    // Add click handlers
     $('.course-card').on('click', function() {
         if ($(this).hasClass('locked')) {
             showNotification('Complete the previous course to unlock this one', 'warning');
@@ -782,6 +755,7 @@ function updateStats() {
     $('#totalQuizzes').text(totalQuizzes);
 }
 
+// Course player functions
 function openCourse(courseIndex) {
     const course = courses[courseIndex];
 
@@ -827,7 +801,7 @@ function renderCoursePlayer() {
                 <div class="progress">
                     <div class="progress-bar" style="width: ${progressPercent}%"></div>
                 </div>
-                <small class="text-muted">${completedItems} of ${totalItems} items completed</small>
+                <small class="text-muted">${completedItems} of ${totalItems} items completed (lessons + quizzes)</small>
             </div>
 
             <h3 class="mb-3">Course Modules</h3>
@@ -900,71 +874,83 @@ function renderModulesList() {
     }).join('');
 }
 
+// Module player functions - MOVED TO APP.JS
 function openModule(moduleIndex) {
     if (!currentCourse || !currentCourse.modules[moduleIndex]) {
-        console.error('Invalid module index');
+        console.error('Invalid module index or course not selected');
         return;
     }
 
     const module = currentCourse.modules[moduleIndex];
 
+    // Check if module is locked
     if (module.isLocked) {
         showNotification('Complete the previous module to unlock this one', 'warning');
         return;
     }
 
     currentModule = module;
+    console.log('Opening module:', currentModule.title, 'with', currentModule.lessons.length, 'lessons');
 
+    // Call renderModulePlayer from quiz.js
     if (typeof renderModulePlayer === 'function') {
         renderModulePlayer();
         showSection('module');
     } else {
-        showNotification('Error opening module', 'error');
+        console.error('renderModulePlayer function not found');
+        showNotification('Error opening module. Please refresh the page.', 'error');
     }
 }
 
-$(document).on('click', '.module-card', function() {
-    if ($(this).hasClass('locked')) {
-        showNotification('Complete the previous module to unlock this one', 'warning');
-        return;
-    }
+// Event handlers for module clicks
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.module-card')) {
+        if (e.target.closest('.module-card').classList.contains('locked')) {
+            showNotification('Complete the previous module to unlock this one', 'warning');
+            return;
+        }
 
-    const moduleIndex = $(this).data('module-index');
-    openModule(moduleIndex);
+        const moduleIndex = e.target.closest('.module-card').getAttribute('data-module-index');
+        openModule(parseInt(moduleIndex));
+    }
 });
 
-// Completion tracking
+// FIXED: Enhanced completion tracking functions
 function markLessonComplete(lessonId) {
     if (!userData.completedLessons.includes(lessonId)) {
         userData.completedLessons.push(lessonId);
+        console.log('Lesson ' + lessonId + ' marked as complete');
+
+        // Update lesson and module completion counts
         updateCompletionCounts();
+
+        // Check for unlocks
         checkAndUnlockContent();
+
+        // Save data
         saveData();
         showNotification('Lesson completed! Great job!', 'success');
     }
 }
 
 function markQuizComplete(quizId, passed = true) {
-    if (passed && !userData.completedQuizzes.includes(quizId)) {
-        userData.completedQuizzes.push(quizId);
+    if (!userData.completedQuizzes.includes(quizId)) {
+        if (passed) {
+            userData.completedQuizzes.push(quizId);
+        }
     }
 
+    console.log('Quiz ' + quizId + ' marked as complete', passed ? 'passed' : '');
+
+    // Update quiz completion counts
     updateCompletionCounts();
+
+    // Check for unlocks
     checkAndUnlockContent();
+
+    // Save data
     saveData();
-
-    // Re-render UI so unlock state is visible immediately
-    if (currentCourse) {
-        renderCoursePlayer();
-    }
-    if (currentModule && typeof renderModulePlayer === 'function') {
-        renderModulePlayer();
-    }
-
-    showNotification(
-        passed ? 'Quiz passed! Well done!' : 'Quiz completed',
-        passed ? 'success' : 'info'
-    );
+    showNotification(passed ? 'Quiz passed! Well done!' : 'Quiz completed', passed ? 'success' : 'info');
 }
 
 function updateCompletionCounts() {
@@ -976,6 +962,7 @@ function updateCompletionCounts() {
             module.completedLessons = 0;
             module.completedQuizzes = 0;
 
+            // Count completed lessons
             module.lessons.forEach(lesson => {
                 if (userData.completedLessons.includes(lesson.id)) {
                     lesson.completed = true;
@@ -983,6 +970,7 @@ function updateCompletionCounts() {
                 }
             });
 
+            // Count completed quizzes
             if (module.quiz && userData.completedQuizzes.includes(module.quiz.id)) {
                 module.quiz.completed = true;
                 module.quiz.passed = true;
@@ -996,8 +984,10 @@ function updateCompletionCounts() {
 }
 
 function applyUserProgress() {
+    console.log('Applying user progress...');
     updateCompletionCounts();
 
+    // Apply unlocked modules
     courses.forEach(course => {
         course.modules.forEach(module => {
             if (userData.unlockedModules.includes(module.id)) {
@@ -1007,11 +997,16 @@ function applyUserProgress() {
     });
 }
 
+// FIXED: Enhanced unlock checking
 function checkAndUnlockContent() {
+    console.log('Checking for content to unlock...');
+
     courses.forEach((course, courseIndex) => {
+        // Check module unlocks within course
         for (let i = 0; i < course.modules.length; i++) {
             const module = course.modules[i];
 
+            // First module is always unlocked
             if (i === 0) {
                 if (module.isLocked) {
                     module.isLocked = false;
@@ -1022,10 +1017,12 @@ function checkAndUnlockContent() {
                 continue;
             }
 
+            // Check if previous module is complete
             const prevModule = course.modules[i - 1];
             const prevComplete = isModuleComplete(prevModule);
 
             if (prevComplete && module.isLocked) {
+                console.log('Unlocking module:', module.title);
                 module.isLocked = false;
                 if (!userData.unlockedModules.includes(module.id)) {
                     userData.unlockedModules.push(module.id);
@@ -1034,11 +1031,15 @@ function checkAndUnlockContent() {
             }
         }
 
+        // Check course unlocks
         if (courseIndex === 0) {
-            course.isLocked = false;
+            course.isLocked = false; // First course always unlocked
         } else {
             const prevCourse = courses[courseIndex - 1];
-            if (isCourseComplete(prevCourse) && course.isLocked) {
+            const prevCourseComplete = isCourseComplete(prevCourse);
+
+            if (prevCourseComplete && course.isLocked) {
+                console.log('Unlocking course:', course.title);
                 course.isLocked = false;
                 showNotification('New course unlocked: ' + course.title, 'success');
             }
@@ -1048,16 +1049,22 @@ function checkAndUnlockContent() {
 
 function isModuleComplete(module) {
     if (!module) return false;
+
     const lessonsComplete = module.completedLessons >= module.totalLessons;
     const quizComplete = !module.quiz || (module.quiz.completed && module.quiz.passed);
+
     return lessonsComplete && quizComplete;
 }
 
 function isCourseComplete(course) {
-    if (!course || !course.modules || course.modules.length === 0) return false;
+    if (!course || !course.modules || course.modules.length === 0) {
+        return false;
+    }
+
     return course.modules.every(module => isModuleComplete(module));
 }
 
+// Success and completion modals
 function showSuccessModal(courseCount, lessonCount, questionCount) {
     $('#successMessage').html(`
         <strong>${courseCount}</strong> course${courseCount !== 1 ? 's' : ''} created successfully!<br>
@@ -1081,6 +1088,7 @@ function showCourseCompletionModal() {
     $('#completionModal').modal('show');
 }
 
+// Notification system
 function showNotification(message, type = 'info') {
     const types = {
         success: { class: 'bg-success', icon: 'fas fa-check-circle' },
@@ -1111,17 +1119,27 @@ function showNotification(message, type = 'info') {
 
     toastElement.show();
 
-    $('#' + id).on('hidden.bs.toast', function() {
-        $(this).remove();
+    // Remove after hiding
+    document.getElementById(id).addEventListener('hidden.bs.toast', function() {
+        this.remove();
     });
 }
 
+// FIXED: Enhanced data persistence
 function saveData() {
     try {
-        localStorage.setItem('zenerom-courses', JSON.stringify(courses));
-        localStorage.setItem('zenerom-quizattempts', JSON.stringify(quizAttempts));
-        localStorage.setItem('zenerom-userdata', JSON.stringify(userData));
-        console.log('✓ Data saved. Courses:', courses.length);
+        const dataToSave = {
+            courses: courses,
+            quizAttempts: quizAttempts,
+            userData: userData,
+            timestamp: Date.now()
+        };
+
+        localStorage.setItem('zenerom-courses', JSON.stringify(dataToSave.courses));
+        localStorage.setItem('zenerom-quizattempts', JSON.stringify(dataToSave.quizAttempts));
+        localStorage.setItem('zenerom-userdata', JSON.stringify(dataToSave.userData));
+
+        console.log('Data saved successfully. Courses:', courses.length);
     } catch (error) {
         console.error('Error saving data:', error);
     }
@@ -1129,21 +1147,26 @@ function saveData() {
 
 function loadStoredData() {
     try {
+        // Load courses
         const storedCourses = localStorage.getItem('zenerom-courses');
         if (storedCourses) {
             courses = JSON.parse(storedCourses);
+            console.log('Loaded', courses.length, 'courses from storage');
         }
 
+        // Load quiz attempts
         const storedQuizAttempts = localStorage.getItem('zenerom-quizattempts');
         if (storedQuizAttempts) {
             quizAttempts = JSON.parse(storedQuizAttempts);
         }
 
+        // Load user data
         const storedUserData = localStorage.getItem('zenerom-userdata');
         if (storedUserData) {
             userData = JSON.parse(storedUserData);
         }
 
+        // Apply progress and check unlocks
         if (courses.length > 0) {
             applyUserProgress();
             checkAndUnlockContent();
@@ -1161,7 +1184,7 @@ function loadStoredData() {
     }
 }
 
-// Export functions
+// Export functions to global scope
 window.showSection = showSection;
 window.openCourse = openCourse;
 window.openModule = openModule;
@@ -1176,4 +1199,4 @@ window.loadStoredData = loadStoredData;
 window.isModuleComplete = isModuleComplete;
 window.isCourseComplete = isCourseComplete;
 
-console.log('✅ Zenerom LMS loaded - NO auto-generation, CSV options only!');
+console.log('✅ Enhanced app.js loaded successfully with REMOVED generic option generation');
