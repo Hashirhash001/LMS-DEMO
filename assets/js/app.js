@@ -652,7 +652,7 @@ function resetAnalyticsFilters() {
 // Course creation option handling
 function handleOptionSelection(option) {
     $('.option-card').removeClass('selected');
-    $('.option-card[data-option="' + option + '"]').addClass('selected');
+    $(`[data-option="${option}"]`).addClass('selected');
 
     switch(option) {
         case 'powerpoint':
@@ -660,6 +660,10 @@ function handleOptionSelection(option) {
             break;
         case 'csv':
             $('#csvModal').modal('show');
+            break;
+        case 'pdf':
+            $('#pdfModal').modal('show');
+            setupPdfUpload();
             break;
         case 'manual':
             showNotification('Manual course builder coming soon!', 'info');
@@ -2141,7 +2145,617 @@ function getCurrentSettingsTab() {
     return active || 'general';
 }
 
+// ==========================================
+// PDF UPLOAD FUNCTIONALITY - FIXED
+// ==========================================
 
+// Setup PDF upload when page loads
+function setupPdfUpload() {
+    const fileInput = $('#pdfFileInput');
+    const uploadArea = $('#pdfUploadArea');
+    
+    // Drag and drop handlers
+    uploadArea.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    uploadArea.on('dragleave', function() {
+        $(this).removeClass('dragover');
+    });
+    
+    uploadArea.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        
+        const files = e.originalEvent.dataTransfer.files;
+        if (files.length > 0) {
+            handlePdfFile(files[0]);
+        }
+    });
+    
+    // File input change
+    fileInput.on('change', function() {
+        if (this.files.length > 0) {
+            handlePdfFile(this.files[0]);
+        }
+    });
+}
+
+// Handle PDF file selection - FIXED VERSION
+function handlePdfFile(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showNotification('Please select a valid PDF file', 'error');
+        return;
+    }
+    
+    // Show file info
+    $('.upload-content').hide();
+    $('#pdfFileInfo').show();
+    $('#pdfFileName').text(file.name);
+    $('#pdfFileSize').text(`${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    
+    // ✅ ENABLE THE BUTTON - THIS WAS MISSING!
+    $('#pdfUploadBtn').prop('disabled', false);
+    
+    // Store file for processing
+    window.selectedPdfFile = file;
+    
+    console.log('✅ PDF file selected:', file.name);
+}
+
+// Remove PDF file
+function removePdfFile() {
+    $('#pdfFileInput').val('');
+    $('.upload-content').show();
+    $('#pdfFileInfo').hide();
+    $('#pdfUploadBtn').prop('disabled', true);
+    window.selectedPdfFile = null;
+}
+
+// Process PDF file - ENHANCED VERSION
+async function processPdfFile() {
+    if (!window.selectedPdfFile) {
+        showNotification('Please select a PDF file first', 'error');
+        return;
+    }
+
+    const progressContainer = $('#pdfProgressContainer');
+    const progressBar = $('#pdfProgressBar');
+    const progressText = $('#pdfProgressText');
+    const uploadBtn = $('#pdfUploadBtn');
+
+    try {
+        progressContainer.show();
+        uploadBtn.prop('disabled', true).html('<i class="fas fa-magic me-2"></i>Processing...');
+
+        const pdfUrl = URL.createObjectURL(window.selectedPdfFile);
+        
+        // Create Gemini-powered parser
+        const parser = new GeminiEnhancedPDFParser();
+        
+        // Set your FREE Gemini API key
+        parser.geminiConfig.apiKey = 'AIzaSyCKLD56rfutA4xxseFVJM96hyxtI5sfw1o';
+        // Get it from: https://makersuite.google.com/app/apikey
+        
+        progressText.text('Loading PDF...');
+        progressBar.css('width', '10%');
+        await parser.loadPDF(pdfUrl);
+        
+        progressText.text('Analyzing with Google Gemini AI...');
+        progressBar.css('width', '30%');
+        
+        progressText.text('Creating professional course structure...');
+        progressBar.css('width', '60%');
+        
+        const modules = await parser.parseIntoModulesAndLessons();
+        
+        if (modules.length === 0) {
+            throw new Error('No content could be extracted from PDF');
+        }
+
+        progressText.text('Finalizing course...');
+        progressBar.css('width', '90%');
+
+        const courseName = window.selectedPdfFile.name.replace('.pdf', '');
+        
+        const course = {
+            id: 'course_' + Date.now(),
+            title: courseName,
+            description: `AI-generated professional course with ${modules.length} modules, created by Google Gemini`,
+            category: 'Training',
+            duration: modules.reduce((sum, m) => sum + m.duration, 0),
+            difficulty: 'Intermediate',
+            prerequisites: 'None',
+            modules: modules,
+            totalLessons: modules.reduce((sum, m) => sum + m.totalLessons, 0),
+            totalQuizzes: modules.reduce((sum, m) => sum + (m.quiz ? 1 : 0), 0) + 
+                         modules.reduce((sum, m) => sum + m.lessons.filter(l => l.quiz).length, 0),
+            completedLessons: 0,
+            completedQuizzes: 0,
+            isLocked: courses.length > 0,
+            createdWith: 'Google Gemini AI (Free)'
+        };
+
+        progressBar.css('width', '100%');
+        progressText.text('✨ Course created successfully with AI!');
+        
+        courses.push(course);
+        checkAndUnlockContent();
+        saveData();
+
+        const totalQuestions = modules.reduce((sum, m) => 
+            sum + m.lessons.reduce((lSum, l) => lSum + (l.quiz?.questions.length || 0), 0), 0);
+
+        showNotification(
+            `✨ AI-Generated Course Created!\n📚 ${modules.length} modules\n📖 ${course.totalLessons} lessons\n❓ ${totalQuestions} AI-generated questions`,
+            'success'
+        );
+        
+        $('#pdfModal').modal('hide');
+        renderCourseDashboard();
+        showSection('courses');
+
+        URL.revokeObjectURL(pdfUrl);
+        removePdfFile();
+
+    } catch (error) {
+        console.error('❌ Error:', error);
+        progressText.text('Error: ' + error.message);
+        progressBar.addClass('bg-danger');
+        showNotification('Failed: ' + error.message, 'error');
+    } finally {
+        setTimeout(() => {
+            uploadBtn.prop('disabled', false).html('<i class="fas fa-magic me-2"></i>Generate Course with AI');
+            progressBar.removeClass('bg-danger');
+        }, 2000);
+    }
+}
+
+// Update loader stats in real-time
+window.updateLoaderStats = function(stats) {
+    $('#statModules').text(stats.modules || 0);
+    $('#statLessons').text(stats.lessons || 0);
+    $('#statQuestions').text(stats.questions || 0);
+    $('#aiStatsCounter').fadeIn();
+};
+
+// Reset PDF upload
+function resetPdfUpload() {
+    $('#pdfProgressContainer').hide();
+    $('#pdfProgressBar').css('width', '0%').removeClass('bg-danger');
+    $('#pdfProgressText').text('Ready to process...');
+    $('#pdfUploadBtn').prop('disabled', false).html('<i class="fas fa-magic me-2"></i>Process PDF');
+    removePdfFile();
+}
+
+// Add modal event handler
+$('#pdfModal').on('hidden.bs.modal', function() {
+    resetPdfUpload();
+});
+
+// Add this to app.js
+async function addQuizzesToExistingCourses() {
+    if (courses.length === 0) {
+        showNotification('No courses to add quizzes to', 'info');
+        return;
+    }
+    
+    showNotification('🤖 Adding module quizzes to existing courses...', 'info');
+    
+    // Simple quiz templates
+    const quizTemplates = [
+        {
+            question: "What is the main objective of this module?",
+            options: [
+                "To understand the core concepts",
+                "To memorize facts only",
+                "To skip the content",
+                "To practice unrelated skills"
+            ],
+            correctIndex: 0,
+            explanation: "The module focuses on understanding core concepts",
+            difficulty: "easy"
+        },
+        {
+            question: "Which approach is recommended in this module?",
+            options: [
+                "Practical application of concepts",
+                "Ignoring the guidelines",
+                "Skipping important steps",
+                "Avoiding best practices"
+            ],
+            correctIndex: 0,
+            explanation: "Practical application is emphasized throughout",
+            difficulty: "medium"
+        },
+        {
+            question: "What should you do after completing this module?",
+            options: [
+                "Review key points and practice",
+                "Forget everything learned",
+                "Skip to unrelated topics",
+                "Avoid using the knowledge"
+            ],
+            correctIndex: 0,
+            explanation: "Reviewing and practicing reinforces learning",
+            difficulty: "easy"
+        }
+    ];
+    
+    courses.forEach(course => {
+        course.modules.forEach((module, mIndex) => {
+            if (!module.quiz || module.quiz.questions.length === 0) {
+                // Generate quiz for this module
+                const quizQuestions = quizTemplates.map((template, qIdx) => ({
+                    id: `q_module_${mIndex}_${qIdx}_generated`,
+                    text: `${module.title}: ${template.question}`,
+                    type: 'multiple-choice',
+                    options: template.options,
+                    correctIndex: template.correctIndex,
+                    correctAnswer: template.options[template.correctIndex],
+                    explanation: template.explanation,
+                    difficulty: template.difficulty
+                }));
+                
+                module.quiz = {
+                    id: `quiz_module_${mIndex}_generated`,
+                    title: `${module.title} - Module Assessment`,
+                    questions: quizQuestions,
+                    passingScore: 70,
+                    timeLimit: 15,
+                    attempts: 0,
+                    maxAttempts: 3,
+                    completed: false,
+                    passed: false,
+                    bestScore: 0
+                };
+                
+                console.log(`✅ Added quiz to module: ${module.title}`);
+            }
+        });
+    });
+    
+    saveData();
+    renderCourseDashboard();
+    showNotification('✅ Module quizzes added successfully!', 'success');
+}
+
+// ==========================================
+// MODULE QUIZ SYSTEM - COMPLETE
+// ==========================================
+
+function startModuleQuiz(courseId, moduleId) {
+    console.log('🎯 Starting quiz for course:', courseId, 'module:', moduleId);
+    console.log('📚 Available courses:', courses.length);
+    console.log('📋 Course IDs:', courses.map(c => c.id));
+    
+    const course = courses.find(c => c.id === courseId);
+    
+    if (!course) {
+        console.error('❌ Course not found. Looking for:', courseId);
+        console.error('Available:', courses.map(c => ({id: c.id, title: c.title})));
+        showNotification('Course not found. Try refreshing the page.', 'error');
+        return;
+    }
+    
+    const module = course.modules.find(m => m.id === moduleId);
+    
+    if (!module) {
+        console.error('❌ Module not found. Looking for:', moduleId);
+        showNotification('Module not found', 'error');
+        return;
+    }
+    
+    if (!module.quiz || !module.quiz.questions || module.quiz.questions.length === 0) {
+        showNotification('No quiz available for this module', 'info');
+        return;
+    }
+    
+    console.log('✅ Quiz found:', module.quiz.questions.length, 'questions');
+    
+    // Store quiz state
+    window.currentModuleQuiz = {
+        courseId: courseId,
+        moduleId: moduleId,
+        quiz: module.quiz,
+        currentQuestion: 0,
+        userAnswers: [],
+        startTime: Date.now()
+    };
+    
+    // Render quiz interface
+    renderModuleQuizInterface();
+}
+
+function renderModuleQuizInterface() {
+    const quiz = window.currentModuleQuiz;
+    const question = quiz.quiz.questions[quiz.currentQuestion];
+    
+    const quizHTML = `
+        <div class="quiz-container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
+            <div class="quiz-header" style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">${quiz.quiz.title}</h3>
+                <div class="quiz-progress">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Question ${quiz.currentQuestion + 1} of ${quiz.quiz.questions.length}</span>
+                        <span>${Math.round(((quiz.currentQuestion + 1) / quiz.quiz.questions.length) * 100)}%</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary" style="width: ${((quiz.currentQuestion + 1) / quiz.quiz.questions.length) * 100}%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="quiz-question" style="margin-bottom: 30px;">
+                <h4 style="margin-bottom: 20px; font-size: 1.2rem;">${question.text}</h4>
+                <div class="quiz-options">
+                    ${question.options.map((option, idx) => `
+                        <div class="quiz-option" style="padding: 15px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s;" onclick="selectModuleQuizAnswer(${idx})">
+                            <input type="radio" name="quiz-answer" id="option-${idx}" value="${idx}" style="margin-right: 10px;">
+                            <label for="option-${idx}" style="cursor: pointer; margin: 0;">${option}</label>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="quiz-actions" style="display: flex; justify-content: space-between; gap: 10px;">
+                ${quiz.currentQuestion > 0 ? `
+                    <button class="btn btn-secondary" onclick="previousModuleQuizQuestion()">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                ` : '<div></div>'}
+                
+                ${quiz.currentQuestion < quiz.quiz.questions.length - 1 ? `
+                    <button class="btn btn-primary" onclick="nextModuleQuizQuestion()" id="nextQuizBtn" disabled>
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                ` : `
+                    <button class="btn btn-success" onclick="submitModuleQuiz()" id="submitQuizBtn" disabled>
+                        <i class="fas fa-check"></i> Submit Quiz
+                    </button>
+                `}
+            </div>
+        </div>
+        
+        <style>
+            .quiz-option:hover {
+                border-color: #6366f1 !important;
+                background-color: #f8f9fa;
+            }
+            .quiz-option.selected {
+                border-color: #6366f1 !important;
+                background-color: #e7e7ff;
+            }
+        </style>
+    `;
+    
+    $('#mainContent').html(quizHTML);
+    
+    // Pre-select if answer exists
+    if (quiz.userAnswers[quiz.currentQuestion] !== undefined) {
+        selectModuleQuizAnswer(quiz.userAnswers[quiz.currentQuestion]);
+    }
+}
+
+function selectModuleQuizAnswer(index) {
+    const quiz = window.currentModuleQuiz;
+    quiz.userAnswers[quiz.currentQuestion] = index;
+    
+    // Update UI
+    $('.quiz-option').removeClass('selected');
+    $(`.quiz-option:eq(${index})`).addClass('selected');
+    $(`#option-${index}`).prop('checked', true);
+    
+    // Enable next/submit button
+    $('#nextQuizBtn, #submitQuizBtn').prop('disabled', false);
+}
+
+function nextModuleQuizQuestion() {
+    const quiz = window.currentModuleQuiz;
+    
+    if (quiz.userAnswers[quiz.currentQuestion] === undefined) {
+        showNotification('Please select an answer', 'warning');
+        return;
+    }
+    
+    quiz.currentQuestion++;
+    renderModuleQuizInterface();
+}
+
+function previousModuleQuizQuestion() {
+    const quiz = window.currentModuleQuiz;
+    quiz.currentQuestion--;
+    renderModuleQuizInterface();
+}
+
+function submitModuleQuiz() {
+    const quiz = window.currentModuleQuiz;
+    
+    if (quiz.userAnswers[quiz.currentQuestion] === undefined) {
+        showNotification('Please answer all questions', 'warning');
+        return;
+    }
+    
+    // Calculate score
+    let correctCount = 0;
+    quiz.quiz.questions.forEach((question, idx) => {
+        if (quiz.userAnswers[idx] === question.correctIndex) {
+            correctCount++;
+        }
+    });
+    
+    const score = Math.round((correctCount / quiz.quiz.questions.length) * 100);
+    const passed = score >= quiz.quiz.passingScore;
+    
+    // Update quiz data
+    const course = courses.find(c => c.id === quiz.courseId);
+    const module = course.modules.find(m => m.id === quiz.moduleId);
+    
+    module.quiz.completed = true;
+    module.quiz.passed = passed;
+    module.quiz.attempts++;
+    module.quiz.bestScore = Math.max(module.quiz.bestScore, score);
+    
+    saveData();
+    
+    // Show results
+    showModuleQuizResults(score, passed, correctCount, quiz.quiz.questions.length);
+}
+
+function showModuleQuizResults(score, passed, correct, total) {
+    console.log('📊 Showing quiz results:', {score, passed, correct, total});
+    
+    const resultsHTML = `
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow-lg border-0">
+                        <div class="card-body text-center p-5">
+                            <div class="mb-4">
+                                <div style="width: 120px; height: 120px; margin: 0 auto; background: ${passed ? '#28a745' : '#dc3545'}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-${passed ? 'check' : 'times'}" style="font-size: 60px; color: white;"></i>
+                                </div>
+                            </div>
+                            
+                            <h2 class="mb-4">${passed ? '🎉 Congratulations!' : '📚 Keep Trying!'}</h2>
+                            
+                            <div class="row g-4 mb-4">
+                                <div class="col-4">
+                                    <div class="p-3 bg-light rounded">
+                                        <h3 class="display-4 mb-0">${score}%</h3>
+                                        <p class="text-muted mb-0">Final Score</p>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-3 bg-light rounded">
+                                        <h3 class="display-4 mb-0">${correct}/${total}</h3>
+                                        <p class="text-muted mb-0">Correct</p>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-3 bg-light rounded">
+                                        <h3 class="display-4 mb-0 ${passed ? 'text-success' : 'text-danger'}">${passed ? '✓' : '✗'}</h3>
+                                        <p class="text-muted mb-0">${passed ? 'Passed' : 'Failed'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex gap-3 justify-content-center">
+                                <button type="button" class="btn btn-primary btn-lg px-4" onclick="refreshAndGoToCourses()">
+                                    <i class="fas fa-home me-2"></i>Back to Courses
+                                </button>
+                                ${!passed ? `
+                                    <button type="button" class="btn btn-secondary btn-lg px-4" onclick="refreshAndRetryQuiz()">
+                                        <i class="fas fa-redo me-2"></i>Try Again
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('#mainContent').html(resultsHTML);
+    showNotification(passed ? '🎉 Quiz passed!' : 'Try again to pass', passed ? 'success' : 'info');
+}
+
+function backToCoursesFromQuiz() {
+    console.log('🏠 Returning to courses from quiz');
+    
+    // Clear quiz state
+    window.currentModuleQuiz = null;
+    
+    // Navigate and refresh
+    showSection('courses');
+    renderCourseDashboard();
+}
+
+window.backToCoursesFromQuiz = backToCoursesFromQuiz;
+
+// Helper function to navigate sections
+function navigateToSection(section) {
+    console.log('🔄 Navigating to:', section);
+    
+    // Call showSection to change visibility
+    showSection(section);
+    
+    // Re-render the content to show updated data
+    switch(section) {
+        case 'courses':
+            renderCourseDashboard();
+            break;
+        case 'dashboard':
+            renderDashboard();
+            break;
+        case 'module':
+            if (currentModule && typeof renderModulePlayer === 'function') {
+                renderModulePlayer();
+            }
+            break;
+        case 'player':
+            if (currentCourse) {
+                renderCoursePlayer();
+            }
+            break;
+        default:
+            console.log('No re-render needed for:', section);
+    }
+}
+
+// Override showSection to force proper display
+const originalShowSection = window.showSection;
+
+window.showSection = function(sectionName) {
+    console.log('🔄 FORCE showSection:', sectionName);
+    
+    // Hide ALL sections first
+    document.querySelectorAll('.section').forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
+    });
+    
+    // Show the target section
+    const targetSection = document.getElementById(`${sectionName}-section`);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+        targetSection.classList.add('active');
+        console.log('✅ Showed:', sectionName);
+    }
+    
+    // Call original function
+    if (originalShowSection) {
+        originalShowSection(sectionName);
+    }
+    
+    // Special handling
+    if (sectionName === 'courses') {
+        setTimeout(() => {
+            renderCourseDashboard();
+            console.log('✅ Courses dashboard re-rendered');
+        }, 50);
+    }
+};
+
+console.log('✅ Section visibility system hardened');
+
+// Update the existing navigateToSection
+window.navigateToSection = navigateToSection;
+
+// Make functions globally accessible
+window.startModuleQuiz = startModuleQuiz;
+window.selectModuleQuizAnswer = selectModuleQuizAnswer;
+window.nextModuleQuizQuestion = nextModuleQuizQuestion;
+window.previousModuleQuizQuestion = previousModuleQuizQuestion;
+window.submitModuleQuiz = submitModuleQuiz;
+window.navigateToSection = navigateToSection;
+
+console.log('✅ Module Quiz System loaded');
+
+// Make it accessible globally
+window.addQuizzesToExistingCourses = addQuizzesToExistingCourses;
 
 // Export functions
 window.showSection = showSection;
@@ -2158,4 +2772,78 @@ window.loadStoredData = loadStoredData;
 window.isModuleComplete = isModuleComplete;
 window.isCourseComplete = isCourseComplete;
 
-console.log('✅ Zenerom LMS loaded - NO auto-generation, CSV options only!');
+
+function refreshAndGoToCourses() {
+    console.log('🔄 Refreshing page and going to courses');
+    
+    // Save flag to localStorage
+    localStorage.setItem('lms_navigate_to', 'courses');
+    
+    // Force page refresh
+    window.location.reload();
+}
+
+function refreshAndRetryQuiz() {
+    console.log('🔄 Refreshing page to retry quiz');
+    
+    if (window.currentModuleQuiz) {
+        // Save quiz info for retry
+        localStorage.setItem('lms_retry_quiz', JSON.stringify({
+            courseId: window.currentModuleQuiz.courseId,
+            moduleId: window.currentModuleQuiz.moduleId
+        }));
+    }
+    
+    // Force page refresh
+    window.location.reload();
+}
+
+// Check on page load if we need to navigate somewhere
+$(document).ready(function() {
+    // Check for navigation flag
+    const navigateTo = localStorage.getItem('lms_navigate_to');
+    if (navigateTo) {
+        localStorage.removeItem('lms_navigate_to');
+        
+        console.log('🎯 Auto-navigating to:', navigateTo);
+        
+        setTimeout(() => {
+            showSection(navigateTo);
+            if (navigateTo === 'courses') {
+                renderCourseDashboard();
+            }
+        }, 500);
+    }
+    
+    // Check for quiz retry
+    const retryQuiz = localStorage.getItem('lms_retry_quiz');
+    if (retryQuiz) {
+        localStorage.removeItem('lms_retry_quiz');
+        
+        try {
+            const quizData = JSON.parse(retryQuiz);
+            console.log('🔄 Auto-retrying quiz:', quizData);
+            
+            setTimeout(() => {
+                // Find and open the course/module
+                const course = courses.find(c => c.id === quizData.courseId);
+                if (course) {
+                    currentCourse = course;
+                    const module = course.modules.find(m => m.id === quizData.moduleId);
+                    if (module) {
+                        currentModule = module;
+                        startModuleQuiz(quizData.courseId, quizData.moduleId);
+                    }
+                }
+            }, 500);
+        } catch (e) {
+            console.error('Error retrying quiz:', e);
+        }
+    }
+});
+
+// Make functions globally accessible
+window.refreshAndGoToCourses = refreshAndGoToCourses;
+window.refreshAndRetryQuiz = refreshAndRetryQuiz;
+
+console.log('✅ Refresh-based navigation loaded');

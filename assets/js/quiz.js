@@ -31,35 +31,42 @@ let policyScore = 0;
 function renderModulePlayer() {
     if (!currentModule) return;
 
-    // Load training progress for this module
-    initializeTrainingProgress();
-
-    const totalItems = currentModule.totalLessons + (currentModule.quiz ? 1 : 0);
-    const completedItems = currentModule.completedLessons + (currentModule.quiz && currentModule.quiz.completed && currentModule.quiz.passed ? 1 : 0);
-    const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-    console.log('Rendering module player:', currentModule.title);
+    const completedLessons = currentModule.lessons.filter(l => l.completed).length;
+    const progressPercent = Math.round((completedLessons / currentModule.totalLessons) * 100);
 
     const html = `
-        <div class="lesson-player fade-in">
-            <button class="btn btn-outline-primary mb-3" onclick="showSection('player')">
+        <div class="module-player fade-in">
+            <button class="btn btn-outline-primary mb-3" onclick="backToCourse()">
                 <i class="fas fa-arrow-left me-2"></i>Back to Course
             </button>
 
-            <div class="course-player-header">
-                <h2>${currentCourse.title}</h2>
-                <h1 class="course-player-title">${currentModule.title}</h1>
-                <p class="course-player-description">${currentModule.description}</p>
+            <div class="module-player-header">
+                <h1 class="module-player-title">${currentModule.title}</h1>
+                <p class="module-player-description">${currentModule.description}</p>
+                
+                <div class="module-stats">
+                    <span class="module-stat">
+                        <i class="fas fa-play-circle me-1"></i>
+                        ${currentModule.totalLessons} Lessons
+                    </span>
+                    <span class="module-stat">
+                        <i class="fas fa-clock me-1"></i>
+                        ${currentModule.duration} minutes
+                    </span>
+                    <span class="module-stat">
+                        <i class="fas fa-check-circle me-1"></i>
+                        ${completedLessons}/${currentModule.totalLessons} Completed
+                    </span>
+                </div>
 
-                <div class="course-progress">
+                <div class="module-progress">
                     <div class="progress-label">
-                        <span><strong>Module Progress</strong></span>
-                        <span><strong>${progressPercent}% Complete</strong></span>
+                        <span>Module Progress</span>
+                        <span><strong>${progressPercent}%</strong></span>
                     </div>
                     <div class="progress">
                         <div class="progress-bar" style="width: ${progressPercent}%"></div>
                     </div>
-                    <small class="text-muted">${completedItems} of ${totalItems} items completed</small>
                 </div>
             </div>
 
@@ -72,7 +79,26 @@ function renderModulePlayer() {
                 </div>
 
                 <div class="col-md-4">
-                    ${renderModuleQuiz()}
+                    <div class="module-sidebar">
+                        <div class="sidebar-section mt-4">
+                            <h4><i class="fas fa-info-circle me-2"></i>Module Overview</h4>
+                            <p>${currentModule.description}</p>
+                        </div>
+
+                        ${currentModule.quiz ? `
+                        <div class="sidebar-section quiz-section">
+                            <h4><i class="fas fa-question-circle me-2"></i>Module Quiz</h4>
+                            <p>${currentModule.quiz.questions.length} Questions</p>
+                            <p class="text-muted">Complete all lessons to unlock</p>
+                            <button class="btn btn-warning w-100" 
+                                    onclick="startModuleQuiz('${currentCourse.id}', '${currentModule.id}')"
+                                    ${completedLessons < currentModule.totalLessons ? 'disabled' : ''}>
+                                <i class="fas fa-play me-2"></i>
+                                ${currentModule.quiz.completed ? 'Retake Quiz' : 'Start Quiz'}
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
         </div>
@@ -81,26 +107,34 @@ function renderModulePlayer() {
     $('#modulePlayer').html(html);
 }
 
+// ✅ FIXED: Lesson List Rendering with Proper HTML Escaping
 function renderLessonsList() {
-    if (!currentModule.lessons || currentModule.lessons.length === 0) {
-        return '<div class="alert alert-warning">No lessons found in this module</div>';
-    }
+    if (!currentModule || !currentModule.lessons) return '';
 
     return currentModule.lessons.map((lesson, index) => {
         const isCompleted = lesson.completed;
-        const lessonNumber = index + 1;
+        const statusClass = isCompleted ? 'completed' : '';
+        const statusText = isCompleted ? 'Completed' : 'Not completed';
+        const statusIcon = isCompleted ? 'fa-check-circle' : 'fa-circle';
+        const buttonText = isCompleted ? 'Review Lesson' : 'Start Lesson';
+        const buttonClass = isCompleted ? 'btn-outline-primary' : 'btn-primary';
+        const buttonIcon = isCompleted ? 'fa-eye' : 'fa-play';
+
+        // Extract plain text preview from content (remove HTML tags)
+        const contentPreview = extractTextPreview(lesson.content, 150);
+        const objectivesText = lesson.objectives || 'Master the key concepts and apply them effectively';
 
         return `
-            <div class="lesson-card ${isCompleted ? 'completed' : ''}" data-lesson-index="${index}">
+            <div class="lesson-card ${statusClass}" data-lesson-index="${index}">
                 <div class="lesson-number">
-                    <span class="lesson-badge ${isCompleted ? 'completed' : ''}">${lessonNumber}</span>
+                    <span class="lesson-badge ${statusClass}">${index + 1}</span>
                 </div>
                 <div class="lesson-details">
                     <div class="lesson-header">
                         <div class="lesson-title-section">
                             <h5 class="lesson-title">
-                                <i class="fas fa-${getLessonIcon(lesson.type)} me-2"></i>
-                                ${lesson.title}
+                                <i class="fas fa-book-open me-2"></i>
+                                ${escapeHtml(lesson.title)}
                             </h5>
                             <span class="lesson-type-badge ${lesson.type.toLowerCase()}">${lesson.type}</span>
                         </div>
@@ -108,22 +142,24 @@ function renderLessonsList() {
                             <span class="lesson-duration">
                                 <i class="fas fa-clock me-1"></i>${lesson.duration} min
                             </span>
-                            <span class="lesson-status ${isCompleted ? 'completed' : 'pending'}">
-                                <i class="fas fa-${isCompleted ? 'check-circle' : 'circle'} me-1"></i>
-                                ${isCompleted ? 'Completed' : 'Not completed'}
+                            <span class="lesson-status ${statusClass}">
+                                <i class="fas ${statusIcon} me-1"></i>
+                                ${statusText}
                             </span>
                         </div>
                     </div>
 
                     <div class="lesson-content-preview">
-                        <p>${lesson.content.substring(0, 120)}${lesson.content.length > 120 ? '...' : ''}</p>
-                        ${lesson.objectives ? `<div class="lesson-objectives"><strong>Learning Objectives:</strong> ${lesson.objectives}</div>` : ''}
+                        <p>${contentPreview}</p>
+                        <div class="lesson-objectives">
+                            <strong>Learning Objectives:</strong> ${escapeHtml(objectivesText)}
+                        </div>
                     </div>
 
                     <div class="lesson-actions">
-                        <button class="btn ${isCompleted ? 'btn-outline-primary' : 'btn-primary'} btn-lesson-start" onclick="openLesson(${index})">
-                            <i class="fas fa-${isCompleted ? 'eye' : 'play'} me-2"></i>
-                            ${isCompleted ? 'Review Lesson' : 'Start Lesson'}
+                        <button class="btn ${buttonClass} btn-lesson-start" onclick="openLesson(${index})">
+                            <i class="fas ${buttonIcon} me-2"></i>
+                            ${buttonText}
                         </button>
                         ${isCompleted ? '<span class="completion-badge"><i class="fas fa-check-circle text-success me-1"></i>Complete</span>' : ''}
                     </div>
@@ -132,6 +168,43 @@ function renderLessonsList() {
         `;
     }).join('');
 }
+
+// ✅ HELPER: Extract Plain Text Preview from HTML Content
+function extractTextPreview(htmlContent, maxLength = 150) {
+    if (!htmlContent) return 'No content available.';
+
+    // Create a temporary div to parse HTML
+    const temp = $('<div>').html(htmlContent);
+    
+    // Get plain text
+    let text = temp.text().trim();
+    
+    // Remove extra whitespace
+    text = text.replace(/\s+/g, ' ');
+    
+    // Truncate
+    if (text.length > maxLength) {
+        text = text.substring(0, maxLength) + '...';
+    }
+    
+    return text || 'Content preview not available.';
+}
+
+// ✅ HELPER: Escape HTML to Prevent Rendering Issues
+function escapeHtml(text) {
+    if (!text) return '';
+    
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    
+    return text.toString().replace(/[&<>"']/g, m => map[m]);
+}
+
 
 function confirmTrainingAnswer(scenarioId) {
     if (currentSelectedOption === null) {
@@ -314,78 +387,363 @@ function getLessonIcon(type) {
 
 // Lesson player
 function openLesson(lessonIndex) {
+    if (!currentModule || !currentModule.lessons || !currentModule.lessons[lessonIndex]) {
+        console.error('Invalid lesson index or module not selected');
+        showNotification('Lesson not found', 'error');
+        return;
+    }
+    
     currentLesson = currentModule.lessons[lessonIndex];
     console.log('Opening lesson:', currentLesson.title, 'Type:', currentLesson.type);
-    renderLessonPlayer();
+    
+    // Pass the lesson object to renderLessonPlayer
+    renderLessonPlayer(currentLesson);
     showSection('lesson');
 }
 
-function renderLessonPlayer() {
-    if (!currentLesson) return;
+
+function renderLessonPlayer(lesson) {
+    // Add validation at the start
+    if (!lesson) {
+        console.error('No lesson provided to renderLessonPlayer');
+        showNotification('Lesson data not available', 'error');
+        showSection('module');
+        return;
+    }
+
+    // Set as current lesson
+    currentLesson = lesson;
+
+    const lessonIndex = currentModule.lessons.findIndex(l => l.id === lesson.id);
+    const isFirstLesson = lessonIndex === 0;
+    const isLastLesson = lessonIndex === currentModule.lessons.length - 1;
+    const nextLesson = !isLastLesson ? currentModule.lessons[lessonIndex + 1] : null;
+    const prevLesson = !isFirstLesson ? currentModule.lessons[lessonIndex - 1] : null;
+
+    const isCompleted = lesson.completed || userData.completedLessons.includes(lesson.id);
+    
+    // Calculate module progress
+    const totalLessons = currentModule.lessons.length;
+    const completedCount = currentModule.lessons.filter(l => 
+        l.completed || userData.completedLessons.includes(l.id)
+    ).length;
+    const progressPercent = Math.round((completedCount / totalLessons) * 100);
 
     const html = `
-        <div class="professional-lesson-player fade-in">
-            <div class="lesson-navigation-bar">
-                <button class="btn btn-outline-primary" onclick="showSection('module')">
+        <div class="professional-lesson-layout fade-in">
+            <!-- Top Navigation Bar -->
+            <div class="lesson-top-nav">
+                <button class="btn btn-outline-secondary" onclick="showSection('module')">
                     <i class="fas fa-arrow-left me-2"></i>Back to Module
                 </button>
-                <div class="lesson-nav-info">
-                    <span class="lesson-module-name">${currentModule.title}</span>
-                    <i class="fas fa-chevron-right mx-2 text-muted"></i>
-                    <span class="current-lesson-name">${currentLesson.title}</span>
+                <div class="breadcrumb-trail">
+                    <span class="breadcrumb-item">${currentCourse.title}</span>
+                    <i class="fas fa-chevron-right mx-2"></i>
+                    <span class="breadcrumb-item">${currentModule.title}</span>
+                    <i class="fas fa-chevron-right mx-2"></i>
+                    <span class="breadcrumb-item active">${lesson.title}</span>
                 </div>
             </div>
 
-            <div class="lesson-container">
-                <div class="lesson-sidebar">
-                    <div class="lesson-meta-card">
-                        <div class="lesson-type-indicator ${currentLesson.type.toLowerCase()}">
-                            <i class="fas fa-${getLessonIcon(currentLesson.type)}"></i>
-                            <span>${currentLesson.type}</span>
+            <div class="lesson-container-grid">
+                <!-- Main Content Area -->
+                <div class="lesson-main-content">
+                    <!-- Lesson Header Card -->
+                    <div class="lesson-header-card">
+                        <div class="lesson-type-badge ${lesson.type.toLowerCase()}">
+                            <i class="fas fa-${getLessonIcon(lesson.type)}"></i>
+                            ${lesson.type}
                         </div>
-                        <h3 class="lesson-title">${currentLesson.title}</h3>
-                        <div class="lesson-stats">
-                            <div class="stat-item">
+                        <h1 class="lesson-main-title">${lesson.title}</h1>
+                        <div class="lesson-meta-row">
+                            <span class="meta-item">
                                 <i class="fas fa-clock"></i>
-                                <span>${currentLesson.duration} minutes</span>
+                                ${lesson.duration} minutes
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-layer-group"></i>
+                                Lesson ${lessonIndex + 1} of ${totalLessons}
+                            </span>
+                            ${isCompleted ? `
+                                <span class="meta-item completed-badge">
+                                    <i class="fas fa-check-circle"></i>
+                                    Completed
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Learning Objectives Panel -->
+                    ${lesson.objectives ? `
+                        <div class="objectives-panel">
+                            <div class="panel-icon">
+                                <i class="fas fa-bullseye"></i>
+                            </div>
+                            <div class="panel-content">
+                                <h3 class="panel-title">Learning Objectives</h3>
+                                <p class="panel-text">${lesson.objectives}</p>
                             </div>
                         </div>
+                    ` : ''}
 
-                        ${currentLesson.objectives ? `
-                            <div class="learning-objectives">
-                                <h5>Learning Objectives</h5>
-                                <p>${currentLesson.objectives}</p>
+                    <!-- Video Player (if video lesson) -->
+                    ${lesson.type === 'Video' && lesson.videoUrl ? `
+                        <div class="video-player-wrapper">
+                            <div class="video-container">
+                                <iframe 
+                                    src="${lesson.videoUrl}" 
+                                    class="lesson-video-iframe"
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                                </iframe>
                             </div>
-                        ` : ''}
-
-                        <div class="lesson-completion-status">
-                            ${currentLesson.completed ? 
-                                '<div class="completion-indicator completed"><i class="fas fa-check-circle me-2"></i>Lesson Completed</div>' : 
-                                '<div class="completion-indicator pending"><i class="fas fa-circle me-2"></i>Mark as complete when finished</div>'
-                            }
                         </div>
+                    ` : ''}
 
-                        <div class="lesson-action-buttons">
-                            ${!currentLesson.completed ? 
-                                `<button class="btn btn-success btn-block" onclick="completeLesson()">
-                                    <i class="fas fa-check me-2"></i>Mark as Complete
-                                </button>` : 
-                                `<button class="btn btn-primary btn-block" onclick="showSection('module')">
-                                    <i class="fas fa-arrow-right me-2"></i>Continue to Module
-                                </button>`
-                            }
+                    <!-- Lesson Content Card -->
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">
+                                <i class="fas fa-book-reader me-2"></i>
+                                Lesson Content
+                            </h2>
+                        </div>
+                        <div class="content-body">
+                            ${formatLessonContent(lesson.content)}
+                        </div>
+                    </div>
+
+                    <!-- Interactive Content (if applicable) -->
+                    ${lesson.interactiveContent ? renderInteractiveContentPreview(lesson.interactiveContent) : ''}
+
+                    <!-- Key Takeaways Section -->
+                    <div class="takeaways-panel">
+                        <div class="panel-icon-large">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <div>
+                            <h3 class="panel-title">Key Takeaways</h3>
+                            <ul class="takeaways-list">
+                                ${generateKeyTakeaways(lesson.content)}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Lesson Navigation Footer -->
+                    <div class="lesson-nav-footer">
+                        <div class="nav-footer-left">
+                            ${prevLesson ? `
+                                <button class="btn btn-outline-primary" onclick="openLesson(${lessonIndex - 1})">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Previous Lesson
+                                </button>
+                            ` : '<div></div>'}
+                        </div>
+                        <div class="nav-footer-center">
+                            ${!isCompleted ? `
+                                <button class="btn btn-success btn-lg" onclick="markLessonComplete('${lesson.id}'); ${nextLesson ? `openLesson(${lessonIndex + 1})` : `showSection('module')`}">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    Mark Complete & Continue
+                                </button>
+                            ` : nextLesson ? `
+                                <button class="btn btn-primary btn-lg" onclick="openLesson(${lessonIndex + 1})">
+                                    Continue to Next Lesson
+                                    <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            ` : `
+                                <button class="btn btn-primary btn-lg" onclick="showSection('module')">
+                                    <i class="fas fa-trophy me-2"></i>
+                                    Complete Module
+                                </button>
+                            `}
+                        </div>
+                        <div class="nav-footer-right">
+                            ${nextLesson ? `
+                                <button class="btn btn-outline-primary" onclick="openLesson(${lessonIndex + 1})">
+                                    Next Lesson
+                                    <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            ` : '<div></div>'}
                         </div>
                     </div>
                 </div>
 
-                <div class="lesson-main-content">
-                    ${renderLessonContent()}
+                <!-- Sidebar -->
+                <div class="lesson-sidebar">
+                    <!-- Module Progress Card -->
+                    <div class="sidebar-card progress-card">
+                        <h4 class="sidebar-card-title">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Your Progress
+                        </h4>
+                        <div class="progress-stats">
+                            <div class="progress-circle">
+                                <svg viewBox="0 0 36 36" class="circular-chart">
+                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                    <path class="circle" stroke-dasharray="${progressPercent}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                    <text x="18" y="20.35" class="percentage">${progressPercent}%</text>
+                                </svg>
+                            </div>
+                            <div class="progress-text">
+                                <strong>${completedCount}</strong> of <strong>${totalLessons}</strong> lessons completed
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Module Content List -->
+                    <div class="sidebar-card module-content-card">
+                        <h4 class="sidebar-card-title">
+                            <i class="fas fa-list me-2"></i>
+                            Module Content
+                        </h4>
+                        <div class="module-lessons-list">
+                            ${renderSidebarLessonsList(lessonIndex)}
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Card -->
+                    <div class="sidebar-card quick-actions-card">
+                        <h4 class="sidebar-card-title">
+                            <i class="fas fa-bolt me-2"></i>
+                            Quick Actions
+                        </h4>
+                        <div class="quick-actions-list">
+                            <button class="quick-action-btn" onclick="showSection('module')">
+                                <i class="fas fa-th-large"></i>
+                                Module Overview
+                            </button>
+                            <button class="quick-action-btn" onclick="showSection('courses')">
+                                <i class="fas fa-book"></i>
+                                All Courses
+                            </button>
+                            ${currentModule.quiz ? `
+                                <button class="quick-action-btn" onclick="startQuiz(currentModule.quiz)">
+                                    <i class="fas fa-question-circle"></i>
+                                    Take Module Quiz
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Resources Card -->
+                    <div class="sidebar-card resources-card">
+                        <h4 class="sidebar-card-title">
+                            <i class="fas fa-download me-2"></i>
+                            Resources
+                        </h4>
+                        <div class="resources-list">
+                            <a href="#" class="resource-item">
+                                <i class="fas fa-file-pdf"></i>
+                                Lesson Notes (PDF)
+                            </a>
+                            <a href="#" class="resource-item">
+                                <i class="fas fa-file-powerpoint"></i>
+                                Presentation Slides
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 
     $('#lessonPlayer').html(html);
+}
+
+// Helper functions
+function getLessonIcon(type) {
+    const icons = {
+        'Video': 'play-circle',
+        'Reading': 'book-open',
+        'Interactive': 'hands',
+        'Scenario': 'theater-masks',
+        'Assessment': 'clipboard-check'
+    };
+    return icons[type] || 'book';
+}
+
+function formatLessonContent(content) {
+    if (!content) return '<p class="content-paragraph">No content available.</p>';
+    
+    // Content is already formatted as HTML from the PDF parser
+    // Just ensure it's wrapped properly
+    if (content.includes('<p class="content-paragraph">') || 
+        content.includes('<ul class="content-list">')) {
+        return content;
+    }
+    
+    // Fallback: basic formatting for non-HTML content
+    const paragraphs = content.split(/\n\s*\n/);
+    return paragraphs
+        .filter(p => p.trim())
+        .map(p => {
+            p = p.trim();
+            // Check if it's a bullet point
+            if (p.startsWith('•') || p.startsWith('-') || /^\d+\./.test(p)) {
+                const items = p.split('\n')
+                    .filter(item => item.trim())
+                    .map(item => {
+                        const text = item.replace(/^[•\-\d\.]+\s*/, '').trim();
+                        return `<li class="content-list-item">${text}</li>`;
+                    })
+                    .join('');
+                return `<ul class="content-list">${items}</ul>`;
+            }
+            return `<p class="content-paragraph">${p}</p>`;
+        })
+        .join('');
+}
+
+function generateKeyTakeaways(content) {
+    // Extract key points from content
+    const sentences = content.split('.').filter(s => s.trim());
+    const takeaways = sentences.slice(0, 3).map(s => 
+        `<li class="takeaway-item"><i class="fas fa-check-circle me-2"></i>${s.trim()}.</li>`
+    );
+    return takeaways.join('');
+}
+
+function renderSidebarLessonsList(currentIndex) {
+    return currentModule.lessons.map((l, index) => {
+        const isCompleted = l.completed || userData.completedLessons.includes(l.id);
+        const isCurrent = index === currentIndex;
+        
+        return `
+            <div class="sidebar-lesson-item ${isCurrent ? 'active' : ''} ${isCompleted ? 'completed' : ''}" 
+                 onclick="openLesson(${index})"
+                 title="${l.title}">
+                <div class="lesson-number2">
+                    ${isCompleted ? '<i class="fas fa-check-circle"></i>' : index + 1}
+                </div>
+                <div class="lesson-info">
+                    <div class="lesson-title-small">${l.title}</div>
+                    <div class="lesson-duration-small">
+                        <i class="fas fa-clock"></i>
+                        <span>${l.duration} min</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderInteractiveContentPreview(interactive) {
+    return `
+        <div class="interactive-preview-card">
+            <div class="interactive-icon">
+                <i class="fas fa-hand-pointer"></i>
+            </div>
+            <div class="interactive-content">
+                <h3>${interactive.title}</h3>
+                <p>${interactive.description}</p>
+                <button class="btn btn-primary" onclick="startInteractiveActivity()">
+                    <i class="fas fa-play me-2"></i>
+                    Start Interactive Activity
+                </button>
+            </div>
+        </div>
+    `;
 }
 
 function renderLessonContent() {

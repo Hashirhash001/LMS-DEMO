@@ -182,7 +182,7 @@
                     </div>
 
                     <!-- Manual Creation Option -->
-                    <div class="option-card" data-option="manual">
+                    <!-- <div class="option-card" data-option="manual">
                         <div class="option-icon manual-icon">
                             <i class="fas fa-edit"></i>
                         </div>
@@ -208,7 +208,37 @@
                                 AI suggestions
                             </li>
                         </ul>
+                    </div> -->
+
+                    <!-- PDF Upload Option -->
+                    <div class="option-card" data-option="pdf">
+                        <div class="option-icon pdf-icon">
+                            <i class="fas fa-file-pdf"></i>
+                        </div>
+                        <h3 class="option-title">Upload PDF Document</h3>
+                        <p class="option-description">
+                            Transform PDF training documents into structured courses with AI-extracted content and quizzes
+                        </p>
+                        <ul class="feature-list">
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                AI content extraction
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Automatic module creation
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Smart quiz generation
+                            </li>
+                            <li class="feature-item">
+                                <i class="feature-check fas fa-check"></i>
+                                Content summarization
+                            </li>
+                        </ul>
                     </div>
+
                 </div>
             </div>
         </section>
@@ -607,6 +637,61 @@
         </div>
     </div>
 
+    <!-- PDF Upload Modal -->
+    <div class="modal fade" id="pdfModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-pdf me-2"></i>
+                        Upload PDF Training Document
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="upload-area" id="pdfUploadArea">
+                        <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
+                        <div class="upload-content" id="pdfUploadContent">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">
+                                <i class="fas fa-file-pdf text-danger"></i>
+                            </div>
+                            <h4>Drop your PDF file here</h4>
+                            <p class="text-muted">or <button type="button" class="btn btn-link p-0" onclick="document.getElementById('pdfFileInput').click()">browse to upload</button></p>
+                            <small class="text-muted">Supports .pdf files - we'll automatically extract lessons</small>
+                        </div>
+                        <div id="pdfFileInfo" style="display: none;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                <i class="fas fa-check-circle text-success"></i>
+                            </div>
+                            <p id="pdfFileName"></p>
+                            <small id="pdfFileSize" class="text-muted"></small>
+                            <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="removePdfFile()">Remove</button>
+                        </div>
+                    </div>
+
+                    <div class="progress-container mt-3" id="pdfProgressContainer" style="display: none;">
+                        <label class="form-label">Processing Progress</label>
+                        <div class="progress">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="pdfProgressBar"></div>
+                        </div>
+                        <small class="text-muted mt-1 d-block" id="pdfProgressText">Ready to process...</small>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>AI-Powered Extraction:</strong> We'll automatically detect sections, create lessons, and generate content from your PDF.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="pdfUploadBtn" onclick="processPdfFile()" disabled>
+                        <i class="fas fa-magic me-2"></i>Process PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Success Modal -->
     <div class="modal fade" id="successModal" tabindex="-1">
         <div class="modal-dialog">
@@ -656,8 +741,29 @@
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <!-- <script>
+        // Show file info when selected
+        document.getElementById('courseFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const fileInfo = `
+                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                    <strong>${file.name}</strong> (${(file.size / 1024 / 1024).toFixed(2)} MB)
+                `;
+                document.getElementById('fileInfo').innerHTML = fileInfo;
+            }
+        });
+
+    </script> -->
 
     <!-- Custom JavaScript -->
+    <script src="assets/js/pdfParser.js"></script>
     <script src="assets/js/app.js"></script>
     <script src="assets/js/quiz.js"></script>
     <script src="assets/js/video-player.js"></script>

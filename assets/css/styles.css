@@ -700,7 +700,7 @@ body {
 }
 
 .progress {
-    height: 8px;
+    height: 11px;
     border-radius: 4px;
     background: var(--border-color);
     overflow: hidden;
@@ -1057,7 +1057,7 @@ body {
     text-align: left;
     cursor: pointer;
     transition: all 0.3s ease;
-    position: relative;
+    /* position: relative; */
 }
 
 .quiz-option:hover {
@@ -1884,4 +1884,8 @@ body {
     .draft-course-actions button {
         flex: 1;
     }
+}
+.pdf-icon {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
 }
