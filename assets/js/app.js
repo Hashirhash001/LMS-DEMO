@@ -2235,7 +2235,7 @@ async function processPdfFile() {
         const parser = new GeminiEnhancedPDFParser();
         
         // Set your FREE Gemini API key
-        parser.geminiConfig.apiKey = 'AIzaSyBRcHFcWIS28rKr-w17coIbqMW04Mo6EWw';
+        parser.geminiConfig.apiKey = 'AIzaSyCtj0R8JHbTDNefgsu0abD4p9yrawmQITY';
         // Get it from: https://makersuite.google.com/app/apikey
         
         progressText.text('Loading PDF...');
