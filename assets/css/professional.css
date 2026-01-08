@@ -80,7 +80,7 @@
 }
 
 .lesson-number {
-    background: var(--light-color);
+    /* background: var(--light-color); */
     padding: var(--spacing-lg);
     display: flex;
     align-items: center;

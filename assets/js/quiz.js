@@ -80,7 +80,7 @@ function renderModulePlayer() {
 
                 <div class="col-md-4">
                     <div class="module-sidebar">
-                        <div class="sidebar-section mt-4">
+                        <div class="sidebar-section" style="margin-top: 3.2rem !important;">
                             <h4><i class="fas fa-info-circle me-2"></i>Module Overview</h4>
                             <p>${currentModule.description}</p>
                         </div>
@@ -696,12 +696,50 @@ function formatLessonContent(content) {
 }
 
 function generateKeyTakeaways(content) {
-    // Extract key points from content
-    const sentences = content.split('.').filter(s => s.trim());
-    const takeaways = sentences.slice(0, 3).map(s => 
-        `<li class="takeaway-item"><i class="fas fa-check-circle me-2"></i>${s.trim()}.</li>`
-    );
-    return takeaways.join('');
+    // Remove ALL HTML tags first for clean processing
+    let cleanContent = content.replace(/<[^>]*>/g, ' ');
+    
+    // Clean up multiple spaces and newlines
+    cleanContent = cleanContent.replace(/\s+/g, ' ').trim();
+    
+    // Split into sentences
+    const sentences = cleanContent
+        .split(/\.\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 30); // Only meaningful sentences
+    
+    // Take first 3
+    const takeaways = sentences.slice(0, 3).map(sentence => {
+        let text = sentence.trim();
+        
+        // Ensure it ends with period
+        if (!text.endsWith('.')) {
+            text += '.';
+        }
+        
+        // ✅ Return clean, consistent format
+        return `<li class="takeaway-item"><i class="fas fa-check-circle me-2"></i>${text}</li>`;
+    });
+    
+    // Fallback
+    if (takeaways.length < 3) {
+        const defaults = [
+            'Understand the core concepts and principles covered in this lesson.',
+            'Apply the knowledge in real-world scenarios and practical situations.',
+            'Master the key techniques and best practices for success.'
+        ];
+        
+        while (takeaways.length < 3) {
+            const index = takeaways.length;
+            if (index < defaults.length) {
+                takeaways.push(
+                    `<li class="takeaway-item"><i class="fas fa-check-circle me-2"></i>${defaults[index]}</li>`
+                );
+            }
+        }
+    }
+    
+    return takeaways.join('\n');
 }
 
 function renderSidebarLessonsList(currentIndex) {
