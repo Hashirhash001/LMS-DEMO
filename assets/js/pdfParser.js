@@ -119,7 +119,7 @@ class GeminiEnhancedPDFParser extends AIEnhancedPDFParser {
         super();
         
         this.geminiConfig = {
-            apiKey: 'AIzaSyCtj0R8JHbTDNefgsu0abD4p9yrawmQITY',
+            apiKey: 'AIzaSyAVxv_gmYIbp78ZAkbCfOWyHUuGY1HSDgo',
             model: 'gemini-2.5-flash',
             baseURL: 'https://generativelanguage.googleapis.com/v1/models',
             maxTokens: 4096, // ✅ REDUCED from 2048
